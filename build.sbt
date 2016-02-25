@@ -36,7 +36,7 @@ val akkaVer = "2.4.2"
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-persistence" % akkaVer,
-  "com.couchbase.client" % "java-client" % "2.2.2",
+  "com.couchbase.client" % "java-client" % "2.2.4",
   "commons-codec" % "commons-codec" % "1.10",
   "com.typesafe.play" %% "play-json" % "2.4.3",
   "com.typesafe.akka" %% "akka-persistence-tck" % akkaVer % "test",
