@@ -3,6 +3,7 @@ Couchbase Plugins for Akka Persistence
 
 [![Gitter](https://badges.gitter.im/Product-Foundry/akka-persistence-couchbase.svg)](https://gitter.im/Product-Foundry/akka-persistence-couchbase?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![License](https://img.shields.io/:license-Apache%202-red.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
+[![Build Status](https://travis-ci.org/Product-Foundry/akka-persistence-couchbase.svg?branch=master)](https://travis-ci.org/Product-Foundry/akka-persistence-couchbase)
 [![Codacy Badge](https://api.codacy.com/project/badge/grade/08a13960705442a4ae6b45471d38ee40)](https://www.codacy.com/app/Product-Foundry/akka-persistence-couchbase)
 [![Download](https://api.bintray.com/packages/productfoundry/maven/akka-persistence-couchbase/images/download.svg) ](https://bintray.com/productfoundry/maven/akka-persistence-couchbase/_latestVersion)
 
