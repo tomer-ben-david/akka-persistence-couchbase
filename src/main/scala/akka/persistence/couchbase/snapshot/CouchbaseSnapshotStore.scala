@@ -12,6 +12,8 @@ import play.api.libs.json.Json
 import scala.concurrent.Future
 import scala.util.Try
 
+import scala.collection.JavaConverters._
+
 class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with ActorLogging {
 
   implicit val executionContext = context.dispatcher
@@ -39,9 +41,7 @@ class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with
     }
   }
 
-  def query(persistenceId: String, criteria: SnapshotSelectionCriteria, limit: Int): List[SnapshotMessage] = {
-
-    import scala.collection.JavaConversions._
+  def query(persistenceId: String, criteria: SnapshotSelectionCriteria, limit: Int): Iterable[SnapshotMessage] = {
 
     def toSnapshotMessage(row: ViewRow) = Json.parse(row.document.content().toString).as[SnapshotMessage]
 
@@ -51,13 +51,13 @@ class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with
       val latest = SnapshotSelectionCriteria.Latest
 
       if (criteria == latest) {
-        bucket.query(all(persistenceId).limit(limit)).toList.map(toSnapshotMessage)
+        bucket.query(all(persistenceId).limit(limit)).asScala.map(toSnapshotMessage)
       } else if (criteria.maxSequenceNr == latest.maxSequenceNr && criteria.maxTimestamp != latest.maxTimestamp) {
-        bucket.query(byTimestamp(persistenceId, criteria.maxTimestamp).limit(limit)).toList.map(toSnapshotMessage)
+        bucket.query(byTimestamp(persistenceId, criteria.maxTimestamp).limit(limit)).asScala.map(toSnapshotMessage)
       } else if (criteria.maxSequenceNr != latest.maxSequenceNr && criteria.maxTimestamp == latest.maxTimestamp) {
-        bucket.query(bySequenceNr(persistenceId, criteria.maxSequenceNr).limit(limit)).toList.map(toSnapshotMessage)
+        bucket.query(bySequenceNr(persistenceId, criteria.maxSequenceNr).limit(limit)).asScala.map(toSnapshotMessage)
       } else if (criteria.maxSequenceNr != latest.maxSequenceNr && criteria.maxTimestamp != latest.maxTimestamp) {
-        bucket.query(bySequenceNr(persistenceId, criteria.maxSequenceNr)).toList.map(toSnapshotMessage).filter(_.timestamp <= criteria.maxTimestamp).take(limit)
+        bucket.query(bySequenceNr(persistenceId, criteria.maxSequenceNr)).asScala.map(toSnapshotMessage).filter(_.timestamp <= criteria.maxTimestamp).take(limit)
       } else {
         throw new IllegalArgumentException(s"Unexpected criteria $criteria")
       }

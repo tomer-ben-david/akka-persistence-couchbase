@@ -28,7 +28,7 @@ object JournalMessage {
       }
   }
 
-  implicit val JournalMessageReads: Reads[JournalMessage] = (
+  implicit val jsonReads: Reads[JournalMessage] = (
     (__ \ "persistenceId").read[String] and
       (__ \ "sequenceNr").read[Long] and
       (__ \ "marker").read[Marker.Marker] and
@@ -36,7 +36,7 @@ object JournalMessage {
       (__ \ "tags").readNullable[Set[String]].map(_.getOrElse(Set.empty[String]))
     ) (JournalMessage.apply _)
 
-  implicit val JournalMessageWrites: Writes[JournalMessage] = (
+  implicit val jsonWrites: Writes[JournalMessage] = (
     (JsPath \ "persistenceId").write[String] and
       (JsPath \ "sequenceNr").write[Long] and
       (JsPath \ "marker").write[Marker.Marker] and
@@ -44,5 +44,5 @@ object JournalMessage {
       (JsPath \ "tags").writeEmptySetAsNull[Set[String]]
     ) (unlift(JournalMessage.unapply))
 
-  implicit val JournalMessageFormat: Format[JournalMessage] = Format(JournalMessageReads, JournalMessageWrites)
+  implicit val jsonFormat: Format[JournalMessage] = Format(jsonReads, jsonWrites)
 }

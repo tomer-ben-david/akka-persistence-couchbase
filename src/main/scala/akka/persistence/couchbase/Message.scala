@@ -11,5 +11,5 @@ import play.api.libs.json._
 case class Message(bytes: Array[Byte])
 
 object Message {
-  implicit val MessageFormat: Format[Message] = Format(Reads.of[String].map(s => apply(Base64.decodeBase64(s))), Writes(a => Writes.of[String].writes(Base64.encodeBase64String(a.bytes))))
+  implicit val jsonFormat: Format[Message] = Format(Reads.of[String].map(s => apply(Base64.decodeBase64(s))), Writes(a => Writes.of[String].writes(Base64.encodeBase64String(a.bytes))))
 }

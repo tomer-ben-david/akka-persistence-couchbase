@@ -37,5 +37,5 @@ object Marker {
 
   def parse(s: String): Option[Marker] = companions.flatMap(_ parse s).headOption
 
-  implicit val MarkerFormat: Format[Marker] = Format(Reads.of[String].map(s => parse(s).get), Writes(a => Writes.of[String].writes(a.value)))
+  implicit val jsonFormat: Format[Marker] = Format(Reads.of[String].map(s => parse(s).get), Writes(a => Writes.of[String].writes(a.value)))
 }

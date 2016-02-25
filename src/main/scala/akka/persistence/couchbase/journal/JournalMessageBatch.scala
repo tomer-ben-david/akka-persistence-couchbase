@@ -13,9 +13,9 @@ case class JournalMessageBatch private(dataType: String, messages: Seq[JournalMe
 
 object JournalMessageBatch {
 
-  val Name = "journal-messages"
+  val name = "journal-messages"
 
-  implicit val JournalMessageBatchFormat: Format[JournalMessageBatch] = Json.format[JournalMessageBatch]
+  implicit val jsonFormat: Format[JournalMessageBatch] = Json.format[JournalMessageBatch]
 
-  def create(messages: Seq[JournalMessage]) = JournalMessageBatch(Name, messages)
+  def create(messages: Seq[JournalMessage]) = JournalMessageBatch(name, messages)
 }

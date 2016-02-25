@@ -3,6 +3,7 @@ package akka.persistence.couchbase.journal
 import akka.persistence.PersistentRepr
 import play.api.libs.json.Json
 
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
 trait CouchbaseRecovery {
@@ -48,13 +49,11 @@ trait CouchbaseRecovery {
       */
     class PersistentIterator(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long) extends Iterator[PersistentRepr] {
 
-      private var _highestSequenceNr = 0L
+      private var highestSequenceNrInternal = 0L
 
-      def highestSequenceNr = _highestSequenceNr
+      def highestSequenceNr = highestSequenceNrInternal
 
       def journalMessageIterator(): Iterator[JournalMessage] = {
-
-        import scala.collection.JavaConverters._
 
         if (max == 0 || fromSequenceNr > toSequenceNr) {
           List.empty[JournalMessage].iterator
@@ -106,7 +105,7 @@ trait CouchbaseRecovery {
 
           val journalMessage = messageIterator.next()
 
-          _highestSequenceNr = journalMessage.sequenceNr
+          highestSequenceNrInternal = journalMessage.sequenceNr
 
           journalMessage.marker match {
             case Marker.Message =>

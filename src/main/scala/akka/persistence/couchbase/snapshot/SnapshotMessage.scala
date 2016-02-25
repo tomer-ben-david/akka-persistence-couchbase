@@ -14,11 +14,12 @@ case class SnapshotMessage private(dataType: String,
 }
 
 object SnapshotMessage {
-  val Name = "snapshot-message"
 
-  implicit val SnapshotMessageFormat: Format[SnapshotMessage] = Json.format[SnapshotMessage]
+  val name = "snapshot-message"
+
+  implicit val jsonFormat: Format[SnapshotMessage] = Json.format[SnapshotMessage]
 
   def create(metadata: SnapshotMetadata, message: Message) = {
-    SnapshotMessage(Name, metadata.persistenceId, metadata.sequenceNr, metadata.timestamp, message)
+    SnapshotMessage(name, metadata.persistenceId, metadata.sequenceNr, metadata.timestamp, message)
   }
 }

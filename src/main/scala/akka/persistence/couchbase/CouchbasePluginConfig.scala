@@ -55,8 +55,8 @@ object CouchbaseJournalConfig {
 
 trait CouchbaseSnapshotStoreConfig extends CouchbasePluginConfig
 
-class DefaultCouchbaseSnapshotStoreConfig(_config: Config)
-  extends DefaultCouchbasePluginConfig(_config)
+class DefaultCouchbaseSnapshotStoreConfig(config: Config)
+  extends DefaultCouchbasePluginConfig(config)
   with CouchbaseSnapshotStoreConfig
 
 object CouchbaseSnapshotStoreConfig {

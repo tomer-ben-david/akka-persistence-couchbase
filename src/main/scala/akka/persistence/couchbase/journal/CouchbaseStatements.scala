@@ -26,7 +26,7 @@ trait CouchbaseStatements {
    */
   def executeBatch(messages: Seq[JournalMessage]): Future[Unit] = {
     val batch = JournalMessageBatch.create(messages)
-    val keyFuture = nextKey(JournalMessageBatch.Name)
+    val keyFuture = nextKey(JournalMessageBatch.name)
 
     keyFuture.map { key =>
       try {
