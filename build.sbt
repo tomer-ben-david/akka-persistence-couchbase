@@ -2,7 +2,7 @@ organization := "com.productfoundry"
 
 name := "akka-persistence-couchbase"
 
-version := "0.1-SNAPSHOT"
+version := "0.1"
 
 scalaVersion := "2.11.7"
 
@@ -27,6 +27,10 @@ parallelExecution in Test := false
 resolvers ++= Seq(
   "Typesafe Releases" at "http://repo.typesafe.com/typesafe/releases/"
 )
+
+licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
+
+bintrayOrganization := Some("productfoundry")
 
 val akkaVer = "2.4.2"
 
