@@ -8,7 +8,7 @@ import com.couchbase.client.java.Bucket
 import com.couchbase.client.java.env.DefaultCouchbaseEnvironment
 import com.couchbase.client.java.util.Blocking
 
-import scala.util.control.NonFatal
+import scala.util.{Failure, Try}
 
 trait Couchbase extends Extension {
 
@@ -55,10 +55,10 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
   private def attemptSafely(message: String)(block: => Unit): Unit = {
     log.debug(message)
 
-    try {
-      block
-    } catch {
-      case NonFatal(e) => log.error(e, message)
+    Try(block) recoverWith {
+      case e =>
+        log.error(e, message)
+        Failure(e)
     }
   }
 }

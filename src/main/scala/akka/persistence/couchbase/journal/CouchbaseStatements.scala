@@ -8,7 +8,7 @@ import play.api.libs.json.Json
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
-import scala.util.control.NonFatal
+import scala.util.{Failure, Try}
 
 trait CouchbaseStatements {
   self: CouchbaseJournal with ActorLogging =>
@@ -22,29 +22,30 @@ trait CouchbaseStatements {
   }
 
   /**
-   * Adds all messages in a single atomically updated batch.
-   */
+    * Adds all messages in a single atomically updated batch.
+    */
   def executeBatch(messages: Seq[JournalMessage]): Future[Unit] = {
     val batch = JournalMessageBatch.create(messages)
     val keyFuture = nextKey(JournalMessageBatch.name)
 
     keyFuture.map { key =>
-      try {
+      Try {
         val jsonObject = JsonObject.fromJson(Json.toJson(batch).toString())
         val jsonDocument = JsonDocument.create(key, jsonObject)
         bucket.insert(jsonDocument)
         log.debug("Wrote batch: {}", key)
-      } catch {
-        case NonFatal(e) => log.error(e, "Writing batch: {}", key)
+      } recoverWith {
+        case e => log.error(e, "Writing batch: {}", key)
+          Failure(e)
       }
     }
   }
 
   /**
-   * Generates a new key with the given base name.
-   *
-   * Couchbase guarantees the key is unique within the cluster.
-   */
+    * Generates a new key with the given base name.
+    *
+    * Couchbase guarantees the key is unique within the cluster.
+    */
   def nextKey(name: String): Future[String] = {
     val counterKey = s"counter::$name"
 
@@ -53,8 +54,8 @@ trait CouchbaseStatements {
   }
 
   /**
-   * Initializes all design documents.
-   */
+    * Initializes all design documents.
+    */
   def initDesignDocs(): Unit = {
     val journalDesignDocumentJson = Json.obj(
       "views" -> Json.obj(
@@ -89,12 +90,14 @@ trait CouchbaseStatements {
       )
     )
 
-    try {
+    Try {
       val journalDesignDocumentJsonObject = JsonObject.fromJson(journalDesignDocumentJson.toString())
       val journalDesignDocument = DesignDocument.from("journal", journalDesignDocumentJsonObject)
       bucket.bucketManager.upsertDesignDocument(journalDesignDocument)
-    } catch {
-      case NonFatal(e) => log.error(e, "Syncing journal design docs")
+    } recoverWith {
+      case e =>
+        log.error(e, "Syncing journal design docs")
+        Failure(e)
     }
   }
 }

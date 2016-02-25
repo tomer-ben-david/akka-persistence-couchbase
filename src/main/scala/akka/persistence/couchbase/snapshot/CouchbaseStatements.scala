@@ -7,7 +7,7 @@ import com.couchbase.client.java.view.{Stale, ViewQuery, DesignDocument}
 import play.api.libs.json.Json
 
 import scala.concurrent.Future
-import scala.util.control.NonFatal
+import scala.util.{Failure, Try}
 
 trait CouchbaseStatements {
   self: CouchbaseSnapshotStore with ActorLogging =>
@@ -39,26 +39,28 @@ trait CouchbaseStatements {
   }
 
   /**
-   * Saves a snapshot.
-   */
+    * Saves a snapshot.
+    */
   def executeSave(snapshot: SnapshotMessage): Future[Unit] = {
     Future.successful {
       val key = SnapshotMessageKey.fromMetadata(snapshot.metadata).value
 
-      try {
+      Try {
         val jsonObject = JsonObject.fromJson(Json.toJson(snapshot).toString())
         val jsonDocument = JsonDocument.create(key, jsonObject)
         bucket.upsert(jsonDocument)
         log.debug("Wrote snapshot: {}", key)
-      } catch {
-        case NonFatal(e) => log.error(e, "Writing snapshot: {}", key)
+      } recoverWith {
+        case e =>
+          log.error(e, "Writing snapshot: {}", key)
+          Failure(e)
       }
     }
   }
 
   /**
-   * Initializes all design documents.
-   */
+    * Initializes all design documents.
+    */
   def initDesignDocs(): Unit = {
     val snapshotsDesignDocumentJson = Json.obj(
       "views" -> Json.obj(
@@ -95,12 +97,14 @@ trait CouchbaseStatements {
       )
     )
 
-    try {
+    Try {
       val snapshotsDesignDocumentJsonObject = JsonObject.fromJson(snapshotsDesignDocumentJson.toString())
       val snapshotsDesignDocument = DesignDocument.from("snapshots", snapshotsDesignDocumentJsonObject)
       bucket.bucketManager.upsertDesignDocument(snapshotsDesignDocument)
-    } catch {
-      case NonFatal(e) => log.error(e, "Syncing snapshots design docs")
+    } recoverWith {
+      case e =>
+        log.error(e, "Syncing snapshots design docs")
+        Failure(e)
     }
   }
 }
