@@ -10,7 +10,7 @@ trait CouchbasePluginConfig {
 
   def bucketName: String
 
-  def bucketPassword: String
+  def bucketPassword: Option[String]
 }
 
 abstract class DefaultCouchbasePluginConfig(config: Config) extends CouchbasePluginConfig {
@@ -19,14 +19,14 @@ abstract class DefaultCouchbasePluginConfig(config: Config) extends CouchbasePlu
 
   override val nodes = bucketConfig.getStringList("nodes")
   override val bucketName = bucketConfig.getString("bucket")
-  override val bucketPassword = bucketConfig.getString("password")
+  override val bucketPassword = Some(bucketConfig.getString("password")).filter(_.nonEmpty)
 
   private[couchbase] def createCluster(environment: CouchbaseEnvironment): Cluster = {
     CouchbaseCluster.create(environment, nodes)
   }
 
   private[couchbase] def openBucket(cluster: Cluster): Bucket = {
-    cluster.openBucket(bucketName, if (bucketPassword.isEmpty) null else bucketPassword)
+    cluster.openBucket(bucketName, bucketPassword.orNull)
   }
 }
 
