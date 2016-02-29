@@ -1,7 +1,6 @@
 package akka.persistence.couchbase.journal
 
 import akka.persistence.PersistentRepr
-import akka.persistence.serialization.Snapshot
 import play.api.libs.json.Json
 
 import scala.collection.JavaConverters._
@@ -91,7 +90,7 @@ trait CouchbaseRecovery {
           fetch()
         }
 
-        val result = current.head
+        val result = current.headOption.getOrElse(throw new NoSuchElementException)
         current = current.tail
         result
       }
