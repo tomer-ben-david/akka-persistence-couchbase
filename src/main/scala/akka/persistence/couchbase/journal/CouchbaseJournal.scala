@@ -3,12 +3,12 @@ package akka.persistence.couchbase.journal
 import akka.actor.ActorLogging
 import akka.persistence._
 import akka.persistence.couchbase.{CouchbaseExtension, Message}
-import akka.persistence.journal.{Tagged, AsyncWriteJournal}
+import akka.persistence.journal.{AsyncWriteJournal, Tagged}
 import akka.serialization.SerializationExtension
 
 import scala.collection.immutable.Seq
-import scala.concurrent.{Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.concurrent.Future
+import scala.util.{Success, Try}
 
 class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with CouchbaseStatements with ActorLogging {
 
@@ -43,14 +43,7 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
     val result = serialized.map(a => a.map(_ => ()))
     val batchResults = serialized.collect({ case Success(batch) => batch }).map(executeBatch)
 
-    val promise = Promise[Seq[Try[Unit]]]()
-
-    Future.sequence(batchResults).onComplete {
-      case Success(_) => promise.complete(Success(result))
-      case Failure(e) => promise.failure(e)
-    }
-
-    promise.future
+    Future.sequence(batchResults).map(_ => result)
   }
 
   override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] = {
