@@ -3,9 +3,8 @@ package akka.persistence.couchbase.snapshot
 import akka.actor.{Actor, ActorLogging}
 import com.couchbase.client.java.Bucket
 import com.couchbase.client.java.document.JsonDocument
-import com.couchbase.client.java.document.json.{JsonArray, JsonObject}
+import com.couchbase.client.java.document.json.JsonArray
 import com.couchbase.client.java.view.{Stale, ViewQuery}
-import play.api.libs.json.Json
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
@@ -45,12 +44,12 @@ trait CouchbaseStatements extends Actor with ActorLogging {
   /**
     * Saves a snapshot.
     */
-  def executeSave(snapshot: SnapshotMessage): Future[Unit] = {
+  def executeSave(snapshotMessage: SnapshotMessage): Future[Unit] = {
     Future.successful {
-      val key = SnapshotMessageKey.fromMetadata(snapshot.metadata).value
+      val key = SnapshotMessageKey.fromMetadata(snapshotMessage.metadata).value
 
       Try {
-        val jsonObject = JsonObject.fromJson(Json.toJson(snapshot).toString())
+        val jsonObject = SnapshotMessage.serialize(snapshotMessage)
         val jsonDocument = JsonDocument.create(key, jsonObject)
         bucket.upsert(jsonDocument)
         log.debug("Wrote snapshot: {}", key)

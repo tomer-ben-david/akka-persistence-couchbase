@@ -1,10 +1,8 @@
 package akka.persistence.couchbase.journal
 
-import play.api.libs.json._
-
 /**
- * Allows operations on persisted messages without the need to update them.
- */
+  * Allows operations on persisted messages without the need to update them.
+  */
 object Marker {
 
   sealed trait Marker {
@@ -16,8 +14,8 @@ object Marker {
   }
 
   /**
-   * Represents a message written to the journal. 
-   */
+    * Represents a message written to the journal.
+    */
   case object Message extends Marker with MarkerCompanion {
     override val value = "M"
 
@@ -25,8 +23,8 @@ object Marker {
   }
 
   /**
-   * Represents a message written to the journal that is marked as deleted.
-   */
+    * Represents a message written to the journal that is marked as deleted.
+    */
   case object MessageDeleted extends Marker with MarkerCompanion {
     override val value = "D"
 
@@ -37,5 +35,7 @@ object Marker {
 
   def parse(s: String): Option[Marker] = companions.flatMap(_ parse s).headOption
 
-  implicit val jsonFormat: Format[Marker] = Format(Reads.of[String].map(s => parse(s).get), Writes(a => Writes.of[String].writes(a.value)))
+  def serialize(marker: Marker): String = marker.value
+
+  def deserialize(s: String): Marker = parse(s).getOrElse(throw new IllegalStateException(s"Unexpected marker: $s"))
 }

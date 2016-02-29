@@ -7,12 +7,10 @@ import akka.persistence.snapshot.SnapshotStore
 import akka.persistence.{SelectedSnapshot, SnapshotMetadata, SnapshotSelectionCriteria}
 import akka.serialization.SerializationExtension
 import com.couchbase.client.java.view.ViewRow
-import play.api.libs.json.Json
-
-import scala.concurrent.Future
-import scala.util.Try
 
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
+import scala.util.Try
 
 class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with ActorLogging {
 
@@ -26,11 +24,11 @@ class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with
   def bucket = couchbase.snapshotStoreBucket
 
   /**
-   * Plugin API: asynchronously loads a snapshot.
-   *
-   * @param persistenceId processor id.
-   * @param criteria selection criteria for loading.
-   */
+    * Plugin API: asynchronously loads a snapshot.
+    *
+    * @param persistenceId processor id.
+    * @param criteria      selection criteria for loading.
+    */
   override def loadAsync(persistenceId: String, criteria: SnapshotSelectionCriteria): Future[Option[SelectedSnapshot]] = {
     Future.successful {
       query(persistenceId, criteria, 1).headOption.map { snapshotMessage =>
@@ -43,7 +41,7 @@ class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with
 
   def query(persistenceId: String, criteria: SnapshotSelectionCriteria, limit: Int): Iterable[SnapshotMessage] = {
 
-    def toSnapshotMessage(row: ViewRow) = Json.parse(row.document.content().toString).as[SnapshotMessage]
+    def toSnapshotMessage(row: ViewRow) = SnapshotMessage.deserialize(row.document.content())
 
     if (criteria.equals(SnapshotSelectionCriteria.None)) {
       List.empty[SnapshotMessage]
@@ -65,11 +63,11 @@ class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with
   }
 
   /**
-   * Plugin API: asynchronously saves a snapshot.
-   *
-   * @param metadata snapshot metadata.
-   * @param data snapshot.
-   */
+    * Plugin API: asynchronously saves a snapshot.
+    *
+    * @param metadata snapshot metadata.
+    * @param data     snapshot.
+    */
   override def saveAsync(metadata: SnapshotMetadata, data: Any): Future[Unit] = {
     val snapshot = Snapshot(data)
     val message = Message(serialization.findSerializerFor(snapshot).toBinary(snapshot))

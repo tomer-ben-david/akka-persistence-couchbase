@@ -1,16 +1,17 @@
 package akka.persistence.couchbase.journal
 
 import akka.persistence.couchbase.Message
-import play.api.libs.json._
-import play.api.libs.functional.syntax._
+import com.couchbase.client.java.document.json.{JsonArray, JsonObject}
+
+import scala.collection.JavaConverters._
 
 /**
   * Represents a single persistent message to write to the journal.
   *
   * @param persistenceId of the persistent actor.
-  * @param sequenceNr of message for the persistent actor.
-  * @param marker indicating the meaning of the message.
-  * @param message optional message, depending on the marker.
+  * @param sequenceNr    of message for the persistent actor.
+  * @param marker        indicating the meaning of the message.
+  * @param message       optional message, depending on the marker.
   */
 case class JournalMessage(persistenceId: String,
                           sequenceNr: Long,
@@ -20,29 +21,33 @@ case class JournalMessage(persistenceId: String,
 
 object JournalMessage {
 
-  implicit class PathAdditions(path: JsPath) {
-    def writeEmptySetAsNull[A <: Set[_]](implicit writes: Writes[A]): OWrites[A] =
-      OWrites[A] { (a: A) =>
-        if (a.isEmpty) Json.obj()
-        else JsPath.createObj(path -> writes.writes(a))
-      }
+  def serialize(journalMessage: JournalMessage): JsonObject = {
+    val jsonObject = JsonObject.create()
+      .put("persistenceId", journalMessage.persistenceId)
+      .put("sequenceNr", journalMessage.sequenceNr)
+      .put("marker", Marker.serialize(journalMessage.marker))
+
+    journalMessage.message.foreach { message =>
+      jsonObject.put("message", Message.serialize(message))
+    }
+
+    Some(journalMessage.tags).filter(_.nonEmpty).foreach { tags =>
+      val tagArray = tags.foldLeft(JsonArray.create())(_ add _)
+      jsonObject.put("tags", tagArray)
+    }
+
+    jsonObject
   }
 
-  implicit val jsonReads: Reads[JournalMessage] = (
-    (__ \ "persistenceId").read[String] and
-      (__ \ "sequenceNr").read[Long] and
-      (__ \ "marker").read[Marker.Marker] and
-      (__ \ "message").readNullable[Message] and
-      (__ \ "tags").readNullable[Set[String]].map(_.getOrElse(Set.empty[String]))
-    ) (JournalMessage.apply _)
-
-  implicit val jsonWrites: Writes[JournalMessage] = (
-    (JsPath \ "persistenceId").write[String] and
-      (JsPath \ "sequenceNr").write[Long] and
-      (JsPath \ "marker").write[Marker.Marker] and
-      (JsPath \ "message").writeNullable[Message] and
-      (JsPath \ "tags").writeEmptySetAsNull[Set[String]]
-    ) (unlift(JournalMessage.unapply))
-
-  implicit val jsonFormat: Format[JournalMessage] = Format(jsonReads, jsonWrites)
+  def deserialize(jsonObject: JsonObject): JournalMessage = {
+    JournalMessage(
+      jsonObject.getString("persistenceId"),
+      jsonObject.getLong("sequenceNr"),
+      Marker.deserialize(jsonObject.getString("marker")),
+      Option(jsonObject.getString("message")).map(Message.deserialize),
+      Option(jsonObject.getArray("tags")).map { tagArray =>
+        tagArray.iterator().asScala.map(_.asInstanceOf[String]).toSet
+      }.getOrElse(Set.empty)
+    )
+  }
 }

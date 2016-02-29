@@ -2,7 +2,7 @@ package akka.persistence.couchbase.snapshot
 
 import akka.persistence.SnapshotMetadata
 import akka.persistence.couchbase.Message
-import play.api.libs.json.{Format, Json}
+import com.couchbase.client.java.document.json.JsonObject
 
 case class SnapshotMessage private(dataType: String,
                                    persistenceId: String,
@@ -17,9 +17,26 @@ object SnapshotMessage {
 
   val name = "snapshot-message"
 
-  implicit val jsonFormat: Format[SnapshotMessage] = Json.format[SnapshotMessage]
-
   def create(metadata: SnapshotMetadata, message: Message) = {
     SnapshotMessage(name, metadata.persistenceId, metadata.sequenceNr, metadata.timestamp, message)
+  }
+
+  def serialize(snapshotMessage: SnapshotMessage): JsonObject = {
+    JsonObject.create()
+      .put("dataType", snapshotMessage.dataType)
+      .put("persistenceId", snapshotMessage.persistenceId)
+      .put("sequenceNr", snapshotMessage.sequenceNr)
+      .put("timestamp", snapshotMessage.timestamp)
+      .put("message", Message.serialize(snapshotMessage.message))
+  }
+
+  def deserialize(jsonObject: JsonObject): SnapshotMessage = {
+    SnapshotMessage(
+      jsonObject.getString("dataType"),
+      jsonObject.getString("persistenceId"),
+      jsonObject.getLong("sequenceNr"),
+      jsonObject.getLong("timestamp"),
+      Message.deserialize(jsonObject.getString("message"))
+    )
   }
 }

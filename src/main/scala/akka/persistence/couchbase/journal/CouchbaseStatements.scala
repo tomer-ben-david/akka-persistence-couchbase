@@ -3,9 +3,8 @@ package akka.persistence.couchbase.journal
 import akka.actor.{Actor, ActorLogging}
 import com.couchbase.client.java.Bucket
 import com.couchbase.client.java.document.JsonDocument
-import com.couchbase.client.java.document.json.{JsonObject, JsonArray}
+import com.couchbase.client.java.document.json.JsonArray
 import com.couchbase.client.java.view._
-import play.api.libs.json.Json
 
 import scala.collection.immutable.Seq
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,7 +33,7 @@ trait CouchbaseStatements extends Actor with ActorLogging {
 
     keyFuture.map { key =>
       Try {
-        val jsonObject = JsonObject.fromJson(Json.toJson(batch).toString())
+        val jsonObject = JournalMessageBatch.serialize(batch)
         val jsonDocument = JsonDocument.create(key, jsonObject)
         bucket.insert(jsonDocument)
         log.debug("Wrote batch: {}", key)

@@ -9,7 +9,6 @@ import com.couchbase.client.java.document.json.JsonObject
 import com.couchbase.client.java.env.DefaultCouchbaseEnvironment
 import com.couchbase.client.java.util.Blocking
 import com.couchbase.client.java.view.DesignDocument
-import play.api.libs.json.Json
 
 import scala.util.{Failure, Try}
 
@@ -72,10 +71,11 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
     * Initializes all design documents.
     */
   private def updateJournalDesignDocs(): Unit = {
-    val journalDesignDocumentJson = Json.obj(
-      "views" -> Json.obj(
-        "by_sequenceNr" -> Json.obj(
-          "map" ->
+
+    val designDocs = JsonObject.create()
+      .put("views", JsonObject.create()
+        .put("by_sequenceNr", JsonObject.create()
+          .put("map",
             """
               |function (doc, meta) {
               |  if (doc.dataType === 'journal-messages') {
@@ -87,9 +87,10 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
               |  }
               |}
             """.stripMargin
-        ),
-        "by_revision" -> Json.obj(
-          "map" ->
+          )
+        )
+        .put("by_revision", JsonObject.create()
+          .put("map",
             """
               |function (doc, meta) {
               |  if (doc.dataType === 'journal-messages') {
@@ -101,21 +102,22 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
               |  }
               |}
             """.stripMargin
+          )
         )
       )
-    )
 
-    updateDesignDocuments(journalBucket, "journal", JsonObject.fromJson(journalDesignDocumentJson.toString()))
+    updateDesignDocuments(journalBucket, "journal", designDocs)
   }
 
   /**
     * Initializes all design documents.
     */
   private def updateSnapshotStoreDesignDocs(): Unit = {
-    val snapshotsDesignDocumentJson = Json.obj(
-      "views" -> Json.obj(
-        "by_sequenceNr" -> Json.obj(
-          "map" ->
+
+    val designDocs = JsonObject.create()
+      .put("views", JsonObject.create()
+        .put("by_sequenceNr", JsonObject.create()
+          .put("map",
             """
               |function (doc) {
               |  if (doc.dataType === 'snapshot-message') {
@@ -123,9 +125,10 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
               |  }
               |}
             """.stripMargin
-        ),
-        "by_timestamp" -> Json.obj(
-          "map" ->
+          )
+        )
+        .put("by_timestamp", JsonObject.create()
+          .put("map",
             """
               |function (doc) {
               |  if (doc.dataType === 'snapshot-message') {
@@ -133,9 +136,10 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
               |  }
               |}
             """.stripMargin
-        ),
-        "all" -> Json.obj(
-          "map" ->
+          )
+        )
+        .put("all", JsonObject.create()
+          .put("map",
             """
               |function (doc) {
               |  if (doc.dataType === 'snapshot-message') {
@@ -143,11 +147,11 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
               |  }
               |}
             """.stripMargin
+          )
         )
       )
-    )
 
-    updateDesignDocuments(snapshotStoreBucket, "snapshots", JsonObject.fromJson(snapshotsDesignDocumentJson.toString()))
+    updateDesignDocuments(snapshotStoreBucket, "snapshots", designDocs)
   }
 
   private def updateDesignDocuments(bucket: Bucket, name: String, raw: JsonObject): Unit = {
