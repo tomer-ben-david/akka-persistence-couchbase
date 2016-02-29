@@ -1,17 +1,21 @@
 package akka.persistence.couchbase.journal
 
-import akka.actor.ActorLogging
+import akka.actor.{Actor, ActorLogging}
+import com.couchbase.client.java.Bucket
 import com.couchbase.client.java.document.JsonDocument
 import com.couchbase.client.java.document.json.{JsonObject, JsonArray}
 import com.couchbase.client.java.view._
 import play.api.libs.json.Json
 
 import scala.collection.immutable.Seq
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 
-trait CouchbaseStatements {
-  self: CouchbaseJournal with ActorLogging =>
+trait CouchbaseStatements extends Actor with ActorLogging {
+
+  def bucket: Bucket
+
+  implicit def executionContext: ExecutionContext
 
   def bySequenceNr(persistenceId: String, from: Long, to: Long) = {
     ViewQuery

@@ -1,16 +1,20 @@
 package akka.persistence.couchbase.snapshot
 
-import akka.actor.ActorLogging
+import akka.actor.{Actor, ActorLogging}
+import com.couchbase.client.java.Bucket
 import com.couchbase.client.java.document.JsonDocument
 import com.couchbase.client.java.document.json.{JsonArray, JsonObject}
 import com.couchbase.client.java.view.{Stale, ViewQuery, DesignDocument}
 import play.api.libs.json.Json
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 
-trait CouchbaseStatements {
-  self: CouchbaseSnapshotStore with ActorLogging =>
+trait CouchbaseStatements extends Actor with ActorLogging {
+
+  def bucket: Bucket
+
+  implicit def executionContext: ExecutionContext
 
   def bySequenceNr(persistenceId: String, maxSequenceNr: Long) = {
     ViewQuery
