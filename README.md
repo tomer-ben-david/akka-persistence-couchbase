@@ -5,6 +5,7 @@ Couchbase Plugins for Akka Persistence
 [![License](https://img.shields.io/:license-Apache%202-red.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
 [![Build Status](https://travis-ci.org/Product-Foundry/akka-persistence-couchbase.svg?branch=master)](https://travis-ci.org/Product-Foundry/akka-persistence-couchbase)
 [![Codacy Badge](https://api.codacy.com/project/badge/grade/08a13960705442a4ae6b45471d38ee40)](https://www.codacy.com/app/Product-Foundry/akka-persistence-couchbase)
+[![Codacy Coverage](https://api.codacy.com/project/badge/coverage/08a13960705442a4ae6b45471d38ee40)](https://www.codacy.com/app/Product-Foundry/akka-persistence-couchbase)
 [![Download](https://api.bintray.com/packages/productfoundry/maven/akka-persistence-couchbase/images/download.svg) ](https://bintray.com/productfoundry/maven/akka-persistence-couchbase/_latestVersion)
 
 Replicated [Akka Persistence](http://doc.akka.io/docs/akka/2.4.2/scala/persistence.html) journal and snapshot store backed by [Couchbase](http://www.couchbase.com/).
