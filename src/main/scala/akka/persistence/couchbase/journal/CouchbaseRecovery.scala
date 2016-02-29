@@ -59,8 +59,7 @@ trait CouchbaseRecovery {
           List.empty[JournalMessage].iterator
         } else {
           val query = bySequenceNr(persistenceId, fromSequenceNr, toSequenceNr)
-          val viewRows = bucket.query(query).asScala.iterator
-          viewRows.map { viewRow =>
+          bucket.query(query).iterator.asScala.map { viewRow =>
             JournalMessage.deserialize(viewRow.value().asInstanceOf[JsonObject])
           }
         }
