@@ -66,12 +66,4 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
 
     Future.sequence(asyncDeletions).map(_ => ())
   }
-
-  /**
-    * Create design docs.
-    */
-  override def preStart(): Unit = {
-    super.preStart()
-    initDesignDocs()
-  }
 }

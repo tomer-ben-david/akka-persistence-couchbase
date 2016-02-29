@@ -4,7 +4,7 @@ import akka.actor.{Actor, ActorLogging}
 import com.couchbase.client.java.Bucket
 import com.couchbase.client.java.document.JsonDocument
 import com.couchbase.client.java.document.json.{JsonArray, JsonObject}
-import com.couchbase.client.java.view.{Stale, ViewQuery, DesignDocument}
+import com.couchbase.client.java.view.{Stale, ViewQuery}
 import play.api.libs.json.Json
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -59,56 +59,6 @@ trait CouchbaseStatements extends Actor with ActorLogging {
           log.error(e, "Writing snapshot: {}", key)
           Failure(e)
       }
-    }
-  }
-
-  /**
-    * Initializes all design documents.
-    */
-  def initDesignDocs(): Unit = {
-    val snapshotsDesignDocumentJson = Json.obj(
-      "views" -> Json.obj(
-        "by_sequenceNr" -> Json.obj(
-          "map" ->
-            """
-              |function (doc) {
-              |  if (doc.dataType === 'snapshot-message') {
-              |    emit([doc.persistenceId, doc.sequenceNr], null);
-              |  }
-              |}
-            """.stripMargin
-        ),
-        "by_timestamp" -> Json.obj(
-          "map" ->
-            """
-              |function (doc) {
-              |  if (doc.dataType === 'snapshot-message') {
-              |    emit([doc.persistenceId, doc.timestamp], null);
-              |  }
-              |}
-            """.stripMargin
-        ),
-        "all" -> Json.obj(
-          "map" ->
-            """
-              |function (doc) {
-              |  if (doc.dataType === 'snapshot-message') {
-              |    emit(doc.persistenceId, null);
-              |  }
-              |}
-            """.stripMargin
-        )
-      )
-    )
-
-    Try {
-      val snapshotsDesignDocumentJsonObject = JsonObject.fromJson(snapshotsDesignDocumentJson.toString())
-      val snapshotsDesignDocument = DesignDocument.from("snapshots", snapshotsDesignDocumentJsonObject)
-      bucket.bucketManager.upsertDesignDocument(snapshotsDesignDocument)
-    } recoverWith {
-      case e =>
-        log.error(e, "Syncing snapshots design docs")
-        Failure(e)
     }
   }
 }

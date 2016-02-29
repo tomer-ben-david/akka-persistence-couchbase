@@ -90,12 +90,4 @@ class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with
       }
     })
   }
-
-  /**
-   * Create design docs.
-   */
-  override def preStart(): Unit = {
-    super.preStart()
-    initDesignDocs()
-  }
 }
