@@ -43,6 +43,9 @@ class TaggingEventAdapter(system: ExtendedActorSystem) extends WriteEventAdapter
       } else {
         Tagged(event, Set(text.substring(0, 1)))
       }
+
+    case unexpected =>
+      throw new IllegalArgumentException(s"Unexpected: $unexpected")
   }
 }
 
