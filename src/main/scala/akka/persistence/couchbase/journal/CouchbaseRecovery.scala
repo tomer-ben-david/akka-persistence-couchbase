@@ -1,6 +1,7 @@
 package akka.persistence.couchbase.journal
 
 import akka.persistence.PersistentRepr
+import akka.persistence.serialization.Snapshot
 import play.api.libs.json.Json
 
 import scala.collection.JavaConverters._
@@ -112,12 +113,15 @@ trait CouchbaseRecovery {
 
               if (!deleted.contains(journalMessage.sequenceNr)) {
 
-                val persistent = deserialize(journalMessage.message.get)
+                journalMessage.message.foreach { message =>
+                  val serializer = serialization.serializerFor(classOf[PersistentRepr])
+                  val persistent = serializer.fromBinary(message.bytes).asInstanceOf[PersistentRepr]
 
-                if (current.headOption.exists(_.sequenceNr != journalMessage.sequenceNr)) {
-                  upcoming = persistent :: Nil
-                } else {
-                  current = persistent :: current
+                  if (current.headOption.exists(_.sequenceNr != journalMessage.sequenceNr)) {
+                    upcoming = persistent :: Nil
+                  } else {
+                    current = persistent :: current
+                  }
                 }
               }
 
@@ -133,5 +137,7 @@ trait CouchbaseRecovery {
         current = current.reverse
       }
     }
+
   }
+
 }

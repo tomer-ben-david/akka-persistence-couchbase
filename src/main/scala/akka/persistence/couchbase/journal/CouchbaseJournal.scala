@@ -36,7 +36,9 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
             (persistentRepr, Set.empty[String])
         }
 
-        JournalMessage(persistenceId, persistent.sequenceNr, Marker.Message, Some(serialize(persistent)), tags)
+
+        val message = Message(serialization.findSerializerFor(persistent).toBinary(persistent))
+        JournalMessage(persistenceId, persistent.sequenceNr, Marker.Message, Some(message), tags)
       }
     })
 
@@ -72,14 +74,4 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
     super.preStart()
     initDesignDocs()
   }
-
-  /**
-    * Serializes a persistent to a message.
-    */
-  def serialize(o: PersistentRepr): Message = serialization.serialize(o).map(bytes => Message(bytes)).get
-
-  /**
-    * Deserializes a message to a persistent.
-    */
-  def deserialize(message: Message): PersistentRepr = serialization.deserialize(message.bytes, classOf[PersistentRepr]).get
 }

@@ -35,8 +35,8 @@ class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with
     Future.successful {
       query(persistenceId, criteria, 1).headOption.map { snapshotMessage =>
         val metadata = SnapshotMetadata(snapshotMessage.persistenceId, snapshotMessage.sequenceNr, snapshotMessage.timestamp)
-        val snapshot = deserialize(snapshotMessage.message)
-        SelectedSnapshot(metadata, snapshot.data)
+        val snapshot = serialization.serializerFor(classOf[Snapshot]).fromBinary(snapshotMessage.message.bytes)
+        SelectedSnapshot(metadata, snapshot.asInstanceOf[Snapshot].data)
       }
     }
   }
@@ -68,10 +68,11 @@ class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with
    * Plugin API: asynchronously saves a snapshot.
    *
    * @param metadata snapshot metadata.
-   * @param snapshot snapshot.
+   * @param data snapshot.
    */
-  override def saveAsync(metadata: SnapshotMetadata, snapshot: Any): Future[Unit] = {
-    val message = serialize(Snapshot(snapshot))
+  override def saveAsync(metadata: SnapshotMetadata, data: Any): Future[Unit] = {
+    val snapshot = Snapshot(data)
+    val message = Message(serialization.findSerializerFor(snapshot).toBinary(snapshot))
     val snapshotMessage = SnapshotMessage.create(metadata, message)
     executeSave(snapshotMessage)
   }
@@ -97,14 +98,4 @@ class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with
     super.preStart()
     initDesignDocs()
   }
-
-  /**
-   * Serializes a persistent to a message.
-   */
-  def serialize(snapshot: Snapshot): Message = Message(serialization.findSerializerFor(snapshot).toBinary(snapshot))
-
-  /**
-   * Deserializes a message to a persistent.
-   */
-  def deserialize(message: Message): Snapshot = serialization.deserialize(message.bytes, classOf[Snapshot]).get
 }
