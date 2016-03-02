@@ -11,11 +11,14 @@ import scala.collection.JavaConverters._
   * @param persistenceId of the persistent actor.
   * @param sequenceNr    of message for the persistent actor.
   * @param marker        indicating the meaning of the message.
+  * @param manifest      optional manifest of the message.
   * @param message       optional message, depending on the marker.
+  * @param tags          optional tags for use with PersistenceQuery.
   */
 case class JournalMessage(persistenceId: String,
                           sequenceNr: Long,
                           marker: Marker.Marker,
+                          manifest: Option[String] = None,
                           message: Option[Message] = None,
                           tags: Set[String] = Set.empty)
 
@@ -26,6 +29,10 @@ object JournalMessage {
       .put("persistenceId", journalMessage.persistenceId)
       .put("sequenceNr", journalMessage.sequenceNr)
       .put("marker", Marker.serialize(journalMessage.marker))
+
+    journalMessage.manifest.foreach { manifest =>
+      jsonObject.put("manifest", manifest)
+    }
 
     journalMessage.message.foreach { message =>
       jsonObject.put("message", Message.serialize(message))
@@ -44,6 +51,7 @@ object JournalMessage {
       jsonObject.getString("persistenceId"),
       jsonObject.getLong("sequenceNr"),
       Marker.deserialize(jsonObject.getString("marker")),
+      Option(jsonObject.getString("manifest")),
       Option(jsonObject.getString("message")).map(Message.deserialize),
       Option(jsonObject.getArray("tags")).map { tagArray =>
         tagArray.iterator().asScala.map(_.asInstanceOf[String]).toSet

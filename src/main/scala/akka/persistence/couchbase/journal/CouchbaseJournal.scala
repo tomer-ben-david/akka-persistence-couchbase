@@ -4,7 +4,7 @@ import akka.actor.ActorLogging
 import akka.persistence._
 import akka.persistence.couchbase.{CouchbaseExtension, Message}
 import akka.persistence.journal.{AsyncWriteJournal, Tagged}
-import akka.serialization.SerializationExtension
+import akka.serialization.{SerializerWithStringManifest, SerializationExtension}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
@@ -36,9 +36,22 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
             (persistentRepr, Set.empty[String])
         }
 
+        val event = persistent.payload.asInstanceOf[AnyRef]
+        val serializer = serialization.findSerializerFor(event)
+        val manifestOption = serializer match {
+          case serializerWithStringManifest: SerializerWithStringManifest =>
+            Some(serializerWithStringManifest.manifest(event))
+          case _ =>
+            if (serializer.includeManifest) {
+              Some(event.getClass.getName)
+            }
+            else {
+              None
+            }
+        }
 
         val message = Message(serialization.findSerializerFor(persistent).toBinary(persistent))
-        JournalMessage(persistenceId, persistent.sequenceNr, Marker.Message, Some(message), tags)
+        JournalMessage(persistenceId, persistent.sequenceNr, Marker.Message, manifestOption, Some(message), tags)
       }
     })
 
