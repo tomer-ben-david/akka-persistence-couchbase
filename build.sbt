@@ -4,7 +4,7 @@ name := "akka-persistence-couchbase"
 
 version := "0.3"
 
-scalaVersion := "2.11.7"
+scalaVersion := "2.11.8"
 
 fork in Test := true
 
@@ -32,7 +32,7 @@ licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html
 
 bintrayOrganization := Some("productfoundry")
 
-val akkaVer = "2.4.2"
+val akkaVer = "2.4.4"
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-persistence" % akkaVer,

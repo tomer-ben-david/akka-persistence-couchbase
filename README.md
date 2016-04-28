@@ -21,7 +21,7 @@ To include the latest release of the Couchbase plugins into your `sbt` project, 
 
     libraryDependencies += "com.productfoundry" %% "akka-persistence-couchbase" % "0.3"
 
-This version of `akka-persistence-couchbase` depends on Akka 2.4.2 and Scala 2.11.7. 
+This version of `akka-persistence-couchbase` depends on Akka 2.4.4 and Scala 2.11.8. 
 
 It is tested with Couchbase 3.1.0.
 
