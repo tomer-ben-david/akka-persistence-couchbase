@@ -1,7 +1,7 @@
 package akka.persistence.couchbase.journal
 
 import akka.actor.{Actor, ActorLogging}
-import com.couchbase.client.java.Bucket
+import com.couchbase.client.java.{Bucket, PersistTo, ReplicateTo}
 import com.couchbase.client.java.document.JsonDocument
 import com.couchbase.client.java.document.json.JsonArray
 import com.couchbase.client.java.view._
@@ -35,7 +35,11 @@ trait CouchbaseStatements extends Actor with ActorLogging {
       Try {
         val jsonObject = JournalMessageBatch.serialize(batch)
         val jsonDocument = JsonDocument.create(key, jsonObject)
-        bucket.insert(jsonDocument)
+        bucket.insert(
+          jsonDocument,
+          PersistTo.NONE,
+          ReplicateTo.NONE
+        )
         log.debug("Wrote batch: {}", key)
       } recoverWith {
         case e => log.error(e, "Writing batch: {}", key)
