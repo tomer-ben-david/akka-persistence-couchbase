@@ -1,7 +1,8 @@
 package akka.persistence.couchbase.journal
 
 import akka.actor.{Actor, ActorLogging}
-import com.couchbase.client.java.Bucket
+import akka.persistence.couchbase.CouchbaseJournalConfig
+import com.couchbase.client.java.{Bucket, PersistTo, ReplicateTo}
 import com.couchbase.client.java.document.JsonDocument
 import com.couchbase.client.java.document.json.JsonArray
 import com.couchbase.client.java.view._
@@ -12,6 +13,8 @@ import scala.util.{Failure, Try}
 
 trait CouchbaseStatements extends Actor with ActorLogging {
 
+  def config: CouchbaseJournalConfig
+
   def bucket: Bucket
 
   implicit def executionContext: ExecutionContext
@@ -19,7 +22,7 @@ trait CouchbaseStatements extends Actor with ActorLogging {
   def bySequenceNr(persistenceId: String, from: Long, to: Long) = {
     ViewQuery
       .from("journal", "by_sequenceNr")
-      .stale(Stale.FALSE)
+      .stale(config.stale)
       .startKey(JsonArray.from(persistenceId, from.asInstanceOf[AnyRef]))
       .endKey(JsonArray.from(persistenceId, to.asInstanceOf[AnyRef]))
   }
@@ -35,7 +38,11 @@ trait CouchbaseStatements extends Actor with ActorLogging {
       Try {
         val jsonObject = JournalMessageBatch.serialize(batch)
         val jsonDocument = JsonDocument.create(key, jsonObject)
-        bucket.insert(jsonDocument)
+        bucket.insert(
+          jsonDocument,
+          PersistTo.NONE,
+          ReplicateTo.NONE
+        )
         log.debug("Wrote batch: {}", key)
       } recoverWith {
         case e => log.error(e, "Writing batch: {}", key)

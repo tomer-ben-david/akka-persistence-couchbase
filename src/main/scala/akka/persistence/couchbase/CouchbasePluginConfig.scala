@@ -2,6 +2,7 @@ package akka.persistence.couchbase
 
 import akka.actor.ActorSystem
 import com.couchbase.client.java.env.CouchbaseEnvironment
+import com.couchbase.client.java.view.Stale
 import com.couchbase.client.java.{Bucket, Cluster, CouchbaseCluster}
 import com.typesafe.config.Config
 
@@ -32,6 +33,8 @@ abstract class DefaultCouchbasePluginConfig(config: Config) extends CouchbasePlu
 
 trait CouchbaseJournalConfig extends CouchbasePluginConfig {
 
+  def stale: Stale
+
   def replayDispatcherId: String
 
   def maxMessageBatchSize: Int
@@ -41,6 +44,12 @@ trait CouchbaseJournalConfig extends CouchbasePluginConfig {
 class DefaultCouchbaseJournalConfig(config: Config)
   extends DefaultCouchbasePluginConfig(config)
   with CouchbaseJournalConfig {
+
+  override val stale = config.getString("stale") match {
+    case "false" => Stale.FALSE
+    case "ok" => Stale.TRUE
+    case "update_after" => Stale.UPDATE_AFTER
+  }
 
   override val replayDispatcherId = config.getString("replay-dispatcher")
 

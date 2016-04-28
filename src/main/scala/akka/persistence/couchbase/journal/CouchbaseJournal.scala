@@ -17,9 +17,9 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
   val couchbase = CouchbaseExtension(context.system)
   val serialization = SerializationExtension(context.system)
 
-  def config = couchbase.journalConfig
+  override def config = couchbase.journalConfig
 
-  def bucket = couchbase.journalBucket
+  override def bucket = couchbase.journalBucket
 
   override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
 
