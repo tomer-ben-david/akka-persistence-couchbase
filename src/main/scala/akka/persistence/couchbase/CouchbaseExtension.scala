@@ -89,21 +89,6 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
             """.stripMargin
           )
         )
-        .put("by_revision", JsonObject.create()
-          .put("map",
-            """
-              |function (doc, meta) {
-              |  if (doc.dataType === 'journal-messages') {
-              |    var messages = doc.messages;
-              |    for (var i = 0, l = messages.length; i < l; i++) {
-              |      var message = messages[i];
-              |      emit([parseInt(meta.id.substring(17)), message.persistenceId, message.sequenceNr], message);
-              |    }
-              |  }
-              |}
-            """.stripMargin
-          )
-        )
       )
 
     updateDesignDocuments(journalBucket, "journal", designDocs)
