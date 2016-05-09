@@ -1,15 +1,18 @@
 package akka.persistence.couchbase.snapshot
 
 import akka.actor.{Actor, ActorLogging}
+import akka.persistence.couchbase.CouchbaseSnapshotStoreConfig
 import com.couchbase.client.java.Bucket
 import com.couchbase.client.java.document.JsonDocument
 import com.couchbase.client.java.document.json.JsonArray
-import com.couchbase.client.java.view.{Stale, ViewQuery}
+import com.couchbase.client.java.view.ViewQuery
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 
 trait CouchbaseStatements extends Actor with ActorLogging {
+
+  def config: CouchbaseSnapshotStoreConfig
 
   def bucket: Bucket
 
@@ -18,7 +21,7 @@ trait CouchbaseStatements extends Actor with ActorLogging {
   def bySequenceNr(persistenceId: String, maxSequenceNr: Long) = {
     ViewQuery
       .from("snapshots", "by_sequenceNr")
-      .stale(Stale.FALSE)
+      .stale(config.stale)
       .descending(true)
       .startKey(JsonArray.from(persistenceId, maxSequenceNr.asInstanceOf[AnyRef]))
       .endKey(JsonArray.from(persistenceId, Long.MinValue.asInstanceOf[AnyRef]))
@@ -27,7 +30,7 @@ trait CouchbaseStatements extends Actor with ActorLogging {
   def byTimestamp(persistenceId: String, maxTimestamp: Long) = {
     ViewQuery
       .from("snapshots", "by_timestamp")
-      .stale(Stale.FALSE)
+      .stale(config.stale)
       .descending(true)
       .startKey(JsonArray.from(persistenceId, maxTimestamp.asInstanceOf[AnyRef]))
       .endKey(JsonArray.from(persistenceId, Long.MinValue.asInstanceOf[AnyRef]))
@@ -36,7 +39,7 @@ trait CouchbaseStatements extends Actor with ActorLogging {
   def all(persistenceId: String) = {
     ViewQuery
       .from("snapshots", "all")
-      .stale(Stale.FALSE)
+      .stale(config.stale)
       .descending(true)
       .key(persistenceId)
   }

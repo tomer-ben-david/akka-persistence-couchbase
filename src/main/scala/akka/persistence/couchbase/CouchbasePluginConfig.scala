@@ -7,6 +7,9 @@ import com.couchbase.client.java.{Bucket, Cluster, CouchbaseCluster}
 import com.typesafe.config.Config
 
 trait CouchbasePluginConfig {
+
+  def stale: Stale
+
   def nodes: java.util.List[String]
 
   def bucketName: String
@@ -17,6 +20,12 @@ trait CouchbasePluginConfig {
 abstract class DefaultCouchbasePluginConfig(config: Config) extends CouchbasePluginConfig {
 
   private val bucketConfig = config.getConfig("bucket")
+
+  override val stale = config.getString("stale") match {
+    case "false" => Stale.FALSE
+    case "ok" => Stale.TRUE
+    case "update_after" => Stale.UPDATE_AFTER
+  }
 
   override val nodes = bucketConfig.getStringList("nodes")
   override val bucketName = bucketConfig.getString("bucket")
@@ -33,8 +42,6 @@ abstract class DefaultCouchbasePluginConfig(config: Config) extends CouchbasePlu
 
 trait CouchbaseJournalConfig extends CouchbasePluginConfig {
 
-  def stale: Stale
-
   def replayDispatcherId: String
 
   def maxMessageBatchSize: Int
@@ -44,12 +51,6 @@ trait CouchbaseJournalConfig extends CouchbasePluginConfig {
 class DefaultCouchbaseJournalConfig(config: Config)
   extends DefaultCouchbasePluginConfig(config)
   with CouchbaseJournalConfig {
-
-  override val stale = config.getString("stale") match {
-    case "false" => Stale.FALSE
-    case "ok" => Stale.TRUE
-    case "update_after" => Stale.UPDATE_AFTER
-  }
 
   override val replayDispatcherId = config.getString("replay-dispatcher")
 
