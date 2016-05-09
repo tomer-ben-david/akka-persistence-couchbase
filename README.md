@@ -19,7 +19,7 @@ To include the latest release of the Couchbase plugins into your `sbt` project, 
 
     resolvers += "Product-Foundry at bintray" at "http://dl.bintray.com/productfoundry/maven"
 
-    libraryDependencies += "com.productfoundry" %% "akka-persistence-couchbase" % "0.3.2"
+    libraryDependencies += "com.productfoundry" %% "akka-persistence-couchbase" % "0.3.3"
 
 This version of `akka-persistence-couchbase` depends on Akka 2.4.4 and Scala 2.11.8. 
 
@@ -51,7 +51,7 @@ Snapshot store plugin
 
 ### Features
 
-- Implements the Akka Persistence [snapshot store plugin API](http://doc.akka.io/docs/akka/2.4.2/scala/persistence.html#snapshot-store-plugin-api).
+- Implements the Akka Persistence [snapshot store plugin API](http://doc.akka.io/docs/akka/2.4.4/scala/persistence.html#snapshot-store-plugin-api).
 
 ### Configuration
 
