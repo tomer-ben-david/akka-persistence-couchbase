@@ -5,47 +5,35 @@ import com.couchbase.client.java.document.json.JsonObject
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
+import scala.util.Try
 
 trait CouchbaseRecovery {
   this: CouchbaseJournal =>
 
-  def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(replayCallback: (PersistentRepr) => Unit): Future[Unit] =
-    CouchbaseRecovery.asyncReplayMessages(persistenceId, fromSequenceNr, toSequenceNr, max)(replayCallback)
+  override def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(replayCallback: (PersistentRepr) => Unit): Future[Unit] = {
+    Future.fromTry(CouchbaseRecovery.replayMessages(persistenceId, fromSequenceNr, toSequenceNr, max)(replayCallback))
+  }
 
-  def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] =
-    CouchbaseRecovery.asyncReadHighestSequenceNr(persistenceId, fromSequenceNr)
-
-  def readHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Long =
-    CouchbaseRecovery.readHighestSequenceNr(persistenceId, fromSequenceNr)
-
-  def replayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(replayCallback: (PersistentRepr) => Unit): Unit =
-    CouchbaseRecovery.replayMessages(persistenceId, fromSequenceNr, toSequenceNr, max)(replayCallback)
-
+  override def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] = {
+    Future.fromTry(CouchbaseRecovery.readHighestSequenceNr(persistenceId, fromSequenceNr))
+  }
 
   object CouchbaseRecovery {
 
-    implicit lazy val replayDispatcher = context.system.dispatchers.lookup(config.replayDispatcherId)
-
-    def asyncReplayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(replayCallback: (PersistentRepr) => Unit): Future[Unit] = {
-      Future.successful(replayMessages(persistenceId, fromSequenceNr, toSequenceNr, max)(replayCallback))
+    def readHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Try[Long] = {
+      Try {
+        val iterator = new PersistentIterator(persistenceId, math.max(1L, fromSequenceNr), Long.MaxValue, Long.MaxValue)
+        while (iterator.hasNext) iterator.next()
+        iterator.highestSequenceNr
+      }
     }
 
-    def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] = {
-      Future.successful(readHighestSequenceNr(persistenceId, fromSequenceNr))
-    }
-
-    def readHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Long = {
-      val iterator = new PersistentIterator(persistenceId, math.max(1L, fromSequenceNr), Long.MaxValue, Long.MaxValue)
-      while (iterator.hasNext) iterator.next()
-      iterator.highestSequenceNr
-    }
-
-    def replayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(replayCallback: (PersistentRepr) => Unit): Unit = {
-      new PersistentIterator(persistenceId, fromSequenceNr, toSequenceNr, max).foreach(replayCallback)
+    def replayMessages(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long)(replayCallback: (PersistentRepr) => Unit): Try[Unit] = {
+      Try(new PersistentIterator(persistenceId, fromSequenceNr, toSequenceNr, max).foreach(replayCallback))
     }
 
     /**
-      * Iterator over persistents.
+      * Iterator over persistent repr.
       */
     class PersistentIterator(persistenceId: String, fromSequenceNr: Long, toSequenceNr: Long, max: Long) extends Iterator[PersistentRepr] {
 

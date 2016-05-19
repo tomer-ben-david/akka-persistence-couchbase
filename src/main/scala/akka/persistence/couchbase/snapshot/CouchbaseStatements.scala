@@ -18,7 +18,7 @@ trait CouchbaseStatements extends Actor with ActorLogging {
 
   implicit def executionContext: ExecutionContext
 
-  def bySequenceNr(persistenceId: String, maxSequenceNr: Long) = {
+  def bySequenceNr(persistenceId: String, maxSequenceNr: Long): ViewQuery = {
     ViewQuery
       .from("snapshots", "by_sequenceNr")
       .stale(config.stale)
@@ -27,7 +27,7 @@ trait CouchbaseStatements extends Actor with ActorLogging {
       .endKey(JsonArray.from(persistenceId, Long.MinValue.asInstanceOf[AnyRef]))
   }
 
-  def byTimestamp(persistenceId: String, maxTimestamp: Long) = {
+  def byTimestamp(persistenceId: String, maxTimestamp: Long): ViewQuery = {
     ViewQuery
       .from("snapshots", "by_timestamp")
       .stale(config.stale)
@@ -36,7 +36,7 @@ trait CouchbaseStatements extends Actor with ActorLogging {
       .endKey(JsonArray.from(persistenceId, Long.MinValue.asInstanceOf[AnyRef]))
   }
 
-  def all(persistenceId: String) = {
+  def all(persistenceId: String): ViewQuery = {
     ViewQuery
       .from("snapshots", "all")
       .stale(config.stale)
@@ -47,10 +47,8 @@ trait CouchbaseStatements extends Actor with ActorLogging {
   /**
     * Saves a snapshot.
     */
-  def executeSave(snapshotMessage: SnapshotMessage): Future[Unit] = {
-    Future.successful {
-      val key = SnapshotMessageKey.fromMetadata(snapshotMessage.metadata).value
-
+  def executeSave(snapshotMessage: SnapshotMessage): Try[Unit] = {
+    Try(SnapshotMessageKey.fromMetadata(snapshotMessage.metadata).value).flatMap { key =>
       Try {
         val jsonObject = SnapshotMessage.serialize(snapshotMessage)
         val jsonDocument = JsonDocument.create(key, jsonObject)

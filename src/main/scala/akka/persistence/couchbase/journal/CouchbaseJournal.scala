@@ -4,7 +4,7 @@ import akka.actor.ActorLogging
 import akka.persistence._
 import akka.persistence.couchbase.{CouchbaseExtension, Message}
 import akka.persistence.journal.{AsyncWriteJournal, Tagged}
-import akka.serialization.{SerializerWithStringManifest, SerializationExtension}
+import akka.serialization.{SerializationExtension, SerializerWithStringManifest}
 
 import scala.collection.immutable.Seq
 import scala.concurrent.Future
@@ -56,27 +56,35 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
     })
 
     val result = serialized.map(a => a.map(_ => ()))
-    val batchResults = serialized.collect({ case Success(batch) => batch }).map(executeBatch)
+    val batches = serialized.collect({ case Success(batch) => batch })
 
-    Future.sequence(batchResults).map(_ => result)
+    Future.fromTry {
+      batches.foldLeft[Try[Unit]](Success({})) { case (acc, batch) =>
+        acc.flatMap { _ =>
+          executeBatch(batch)
+        }
+      }.map (_ => result)
+    }
   }
 
   override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] = {
+    Future.fromTry[Unit] {
+      var toDelete: List[Long] = Nil
 
-    var toDelete: List[Long] = Nil
-
-    CouchbaseRecovery.replayMessages(persistenceId, 0L, toSequenceNr, Long.MaxValue) { persistent =>
-      if (!toDelete.headOption.contains(persistent.sequenceNr)) {
-        toDelete = persistent.sequenceNr :: toDelete
+      CouchbaseRecovery.replayMessages(persistenceId, 0L, toSequenceNr, Long.MaxValue) { persistent =>
+        if (!toDelete.headOption.contains(persistent.sequenceNr)) {
+          toDelete = persistent.sequenceNr :: toDelete
+        }
+      }.flatMap { _ =>
+        val groups = toDelete.reverse.grouped(config.maxMessageBatchSize)
+        groups.foldLeft[Try[Unit]](Success({})) { case (acc, group) =>
+          acc.flatMap { _ =>
+            executeBatch {
+              group.map(sequenceNr => JournalMessage(persistenceId, sequenceNr, Marker.MessageDeleted))
+            }
+          }
+        }
       }
     }
-
-    val asyncDeletions = toDelete.reverse.grouped(config.maxMessageBatchSize).map { group =>
-      executeBatch {
-        group.map(sequenceNr => JournalMessage(persistenceId, sequenceNr, Marker.MessageDeleted))
-      }
-    }
-
-    Future.sequence(asyncDeletions).map(_ => ())
   }
 }

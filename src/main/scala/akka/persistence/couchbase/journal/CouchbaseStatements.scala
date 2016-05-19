@@ -19,7 +19,7 @@ trait CouchbaseStatements extends Actor with ActorLogging {
 
   implicit def executionContext: ExecutionContext
 
-  def bySequenceNr(persistenceId: String, from: Long, to: Long) = {
+  def bySequenceNr(persistenceId: String, from: Long, to: Long): ViewQuery = {
     ViewQuery
       .from("journal", "by_sequenceNr")
       .stale(config.stale)
@@ -30,12 +30,11 @@ trait CouchbaseStatements extends Actor with ActorLogging {
   /**
     * Adds all messages in a single atomically updated batch.
     */
-  def executeBatch(messages: Seq[JournalMessage]): Future[Unit] = {
-    val batch = JournalMessageBatch.create(messages)
-    val keyFuture = nextKey(JournalMessageBatch.name)
-
-    keyFuture.map { key =>
+  def executeBatch(messages: Seq[JournalMessage]): Try[Unit] = {
+    nextKey(JournalMessageBatch.name).flatMap { key =>
       Try {
+        val batch = JournalMessageBatch.create(messages)
+
         val jsonObject = JournalMessageBatch.serialize(batch)
         val jsonDocument = JsonDocument.create(key, jsonObject)
         bucket.insert(
@@ -45,7 +44,8 @@ trait CouchbaseStatements extends Actor with ActorLogging {
         )
         log.debug("Wrote batch: {}", key)
       } recoverWith {
-        case e => log.error(e, "Writing batch: {}", key)
+        case e =>
+          log.error(e, "Writing batch: {}", key)
           Failure(e)
       }
     }
@@ -56,10 +56,11 @@ trait CouchbaseStatements extends Actor with ActorLogging {
     *
     * Couchbase guarantees the key is unique within the cluster.
     */
-  def nextKey(name: String): Future[String] = {
-    val counterKey = s"counter::$name"
-
-    val counter = bucket.counter(counterKey, 1L, 0L).content()
-    Future.successful(s"$name-$counter")
+  def nextKey(name: String): Try[String] = {
+    Try {
+      val counterKey = s"counter::$name"
+      val counter = bucket.counter(counterKey, 1L, 0L).content()
+      s"$name-$counter"
+    }
   }
 }
