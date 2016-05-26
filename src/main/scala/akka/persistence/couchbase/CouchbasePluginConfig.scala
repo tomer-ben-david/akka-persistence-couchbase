@@ -1,14 +1,25 @@
 package akka.persistence.couchbase
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import com.couchbase.client.java.env.CouchbaseEnvironment
 import com.couchbase.client.java.view.Stale
-import com.couchbase.client.java.{Bucket, Cluster, CouchbaseCluster}
+import com.couchbase.client.java._
 import com.typesafe.config.Config
+
+import scala.concurrent.duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 
 trait CouchbasePluginConfig {
 
   def stale: Stale
+
+  def persistTo: PersistTo
+
+  def replicateTo: ReplicateTo
+
+  def timeout: FiniteDuration
 
   def nodes: java.util.List[String]
 
@@ -19,17 +30,21 @@ trait CouchbasePluginConfig {
 
 abstract class DefaultCouchbasePluginConfig(config: Config) extends CouchbasePluginConfig {
 
-  private val bucketConfig = config.getConfig("bucket")
+  private val bucketConfig: Config = config.getConfig("bucket")
 
-  override val stale = config.getString("stale") match {
-    case "false" => Stale.FALSE
-    case "ok" => Stale.TRUE
-    case "update_after" => Stale.UPDATE_AFTER
-  }
+  override val stale: Stale = Some(config.getString("stale")).flatMap(identifier => Stale.values().find(_.identifier() == identifier)).getOrElse(throw new IllegalArgumentException("Stale property invalid"))
 
-  override val nodes = bucketConfig.getStringList("nodes")
-  override val bucketName = bucketConfig.getString("bucket")
-  override val bucketPassword = Some(bucketConfig.getString("password")).filter(_.nonEmpty)
+  override val persistTo: PersistTo = PersistTo.valueOf(config.getString("persistTo"))
+
+  override val replicateTo: ReplicateTo = ReplicateTo.valueOf(config.getString("replicateTo"))
+
+  override val timeout: FiniteDuration = FiniteDuration(config.getDuration("timeout").getSeconds, TimeUnit.SECONDS)
+
+  override val nodes: java.util.List[String] = bucketConfig.getStringList("nodes")
+
+  override val bucketName: String = bucketConfig.getString("bucket")
+
+  override val bucketPassword: Option[String] = Some(bucketConfig.getString("password")).filter(_.nonEmpty)
 
   private[couchbase] def createCluster(environment: CouchbaseEnvironment): Cluster = {
     CouchbaseCluster.create(environment, nodes)
@@ -50,7 +65,7 @@ trait CouchbaseJournalConfig extends CouchbasePluginConfig {
 
 class DefaultCouchbaseJournalConfig(config: Config)
   extends DefaultCouchbasePluginConfig(config)
-  with CouchbaseJournalConfig {
+    with CouchbaseJournalConfig {
 
   override val replayDispatcherId = config.getString("replay-dispatcher")
 
@@ -67,7 +82,7 @@ trait CouchbaseSnapshotStoreConfig extends CouchbasePluginConfig
 
 class DefaultCouchbaseSnapshotStoreConfig(config: Config)
   extends DefaultCouchbasePluginConfig(config)
-  with CouchbaseSnapshotStoreConfig
+    with CouchbaseSnapshotStoreConfig
 
 object CouchbaseSnapshotStoreConfig {
   def apply(system: ActorSystem) = {

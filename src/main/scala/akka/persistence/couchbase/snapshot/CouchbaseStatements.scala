@@ -1,5 +1,7 @@
 package akka.persistence.couchbase.snapshot
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{Actor, ActorLogging}
 import akka.persistence.couchbase.CouchbaseSnapshotStoreConfig
 import com.couchbase.client.java.Bucket
@@ -7,7 +9,7 @@ import com.couchbase.client.java.document.JsonDocument
 import com.couchbase.client.java.document.json.JsonArray
 import com.couchbase.client.java.view.ViewQuery
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Try}
 
 trait CouchbaseStatements extends Actor with ActorLogging {
@@ -52,7 +54,13 @@ trait CouchbaseStatements extends Actor with ActorLogging {
       Try {
         val jsonObject = SnapshotMessage.serialize(snapshotMessage)
         val jsonDocument = JsonDocument.create(key, jsonObject)
-        bucket.upsert(jsonDocument)
+        bucket.upsert(
+          jsonDocument,
+          config.persistTo,
+          config.replicateTo,
+          config.timeout.toSeconds,
+          TimeUnit.SECONDS
+        )
         log.debug("Wrote snapshot: {}", key)
       } recoverWith {
         case e =>

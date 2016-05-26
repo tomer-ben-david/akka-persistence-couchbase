@@ -1,5 +1,7 @@
 package akka.persistence.couchbase.journal
 
+import java.util.concurrent.TimeUnit
+
 import akka.persistence.PersistentRepr
 import com.couchbase.client.java.document.json.JsonObject
 
@@ -47,7 +49,7 @@ trait CouchbaseRecovery {
           List.empty[JournalMessage].iterator
         } else {
           val query = bySequenceNr(persistenceId, fromSequenceNr, toSequenceNr)
-          bucket.query(query).iterator.asScala.map { viewRow =>
+          bucket.query(query, config.timeout.toSeconds, TimeUnit.SECONDS).iterator.asScala.map { viewRow =>
             JournalMessage.deserialize(viewRow.value().asInstanceOf[JsonObject])
           }
         }

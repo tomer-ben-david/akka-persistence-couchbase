@@ -1,5 +1,7 @@
 package akka.persistence.couchbase.snapshot
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorLogging
 import akka.persistence.couchbase.{CouchbaseExtension, Message}
 import akka.persistence.serialization.Snapshot
@@ -51,13 +53,13 @@ class CouchbaseSnapshotStore extends SnapshotStore with CouchbaseStatements with
       val latest = SnapshotSelectionCriteria.Latest
 
       if (criteria == latest) {
-        bucket.query(all(persistenceId).limit(limit)).asScala.map(toSnapshotMessage)
+        bucket.query(all(persistenceId).limit(limit), config.timeout.toSeconds, TimeUnit.SECONDS).asScala.map(toSnapshotMessage)
       } else if (criteria.maxSequenceNr == latest.maxSequenceNr && criteria.maxTimestamp != latest.maxTimestamp) {
-        bucket.query(byTimestamp(persistenceId, criteria.maxTimestamp).limit(limit)).asScala.map(toSnapshotMessage)
+        bucket.query(byTimestamp(persistenceId, criteria.maxTimestamp).limit(limit), config.timeout.toSeconds, TimeUnit.SECONDS).asScala.map(toSnapshotMessage)
       } else if (criteria.maxSequenceNr != latest.maxSequenceNr && criteria.maxTimestamp == latest.maxTimestamp) {
-        bucket.query(bySequenceNr(persistenceId, criteria.maxSequenceNr).limit(limit)).asScala.map(toSnapshotMessage)
+        bucket.query(bySequenceNr(persistenceId, criteria.maxSequenceNr).limit(limit), config.timeout.toSeconds, TimeUnit.SECONDS).asScala.map(toSnapshotMessage)
       } else if (criteria.maxSequenceNr != latest.maxSequenceNr && criteria.maxTimestamp != latest.maxTimestamp) {
-        bucket.query(bySequenceNr(persistenceId, criteria.maxSequenceNr)).asScala.map(toSnapshotMessage).filter(_.timestamp <= criteria.maxTimestamp).take(limit)
+        bucket.query(bySequenceNr(persistenceId, criteria.maxSequenceNr), config.timeout.toSeconds, TimeUnit.SECONDS).asScala.map(toSnapshotMessage).filter(_.timestamp <= criteria.maxTimestamp).take(limit)
       } else {
         throw new IllegalArgumentException(s"Unexpected criteria $criteria")
       }
