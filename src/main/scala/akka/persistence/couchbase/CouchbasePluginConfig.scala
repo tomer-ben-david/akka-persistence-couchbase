@@ -34,9 +34,9 @@ abstract class DefaultCouchbasePluginConfig(config: Config) extends CouchbasePlu
 
   override val stale: Stale = Some(config.getString("stale")).flatMap(identifier => Stale.values().find(_.identifier() == identifier)).getOrElse(throw new IllegalArgumentException("Stale property invalid"))
 
-  override val persistTo: PersistTo = PersistTo.valueOf(config.getString("persistTo"))
+  override val persistTo: PersistTo = PersistTo.valueOf(config.getString("persist-to"))
 
-  override val replicateTo: ReplicateTo = ReplicateTo.valueOf(config.getString("replicateTo"))
+  override val replicateTo: ReplicateTo = ReplicateTo.valueOf(config.getString("replicate-to"))
 
   override val timeout: FiniteDuration = FiniteDuration(config.getDuration("timeout").getSeconds, TimeUnit.SECONDS)
 

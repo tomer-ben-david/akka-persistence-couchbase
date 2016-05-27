@@ -35,6 +35,11 @@ object CouchbasePluginSpec {
       |  log-dead-letters-during-shutdown = off
       |  test.single-expect-default = 10s
       |}
+      |
+      |couchbase-replay {
+      |
+      |  batchSize = "10"
+      |}
     """.stripMargin)
 }
 
