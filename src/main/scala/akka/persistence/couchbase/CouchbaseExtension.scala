@@ -6,13 +6,15 @@ import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvi
 import akka.event.Logging
 import com.couchbase.client.java.Bucket
 import com.couchbase.client.java.document.json.JsonObject
-import com.couchbase.client.java.env.DefaultCouchbaseEnvironment
+import com.couchbase.client.java.env.{CouchbaseEnvironment, DefaultCouchbaseEnvironment}
 import com.couchbase.client.java.util.Blocking
 import com.couchbase.client.java.view.DesignDocument
 
 import scala.util.{Failure, Try}
 
 trait Couchbase extends Extension {
+
+  def environment: CouchbaseEnvironment
 
   def journalBucket: Bucket
 
@@ -31,7 +33,7 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
 
   override val snapshotStoreConfig = CouchbaseSnapshotStoreConfig(system)
 
-  private val environment = DefaultCouchbaseEnvironment.create()
+  override val environment = DefaultCouchbaseEnvironment.create()
 
   private val journalCluster = journalConfig.createCluster(environment)
 

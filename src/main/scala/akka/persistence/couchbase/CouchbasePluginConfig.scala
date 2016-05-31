@@ -3,13 +3,12 @@ package akka.persistence.couchbase
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
+import com.couchbase.client.java._
 import com.couchbase.client.java.env.CouchbaseEnvironment
 import com.couchbase.client.java.view.Stale
-import com.couchbase.client.java._
 import com.typesafe.config.Config
 
-import scala.concurrent.duration
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 
 trait CouchbasePluginConfig {
 

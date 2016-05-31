@@ -2,7 +2,7 @@ package akka.persistence.couchbase.replay
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, ActorLogging, Props}
 import akka.persistence.PersistentRepr
 import akka.persistence.couchbase.CouchbaseExtension
 import akka.persistence.couchbase.replay.ReplayActor.NextPage
@@ -13,27 +13,31 @@ import com.couchbase.client.java.view.{Stale, ViewQuery}
 
 import scala.collection.JavaConverters._
 
-class ReplayActor(callback: ReplayCallback) extends Actor {
+class ReplayActor(callback: ReplayCallback)
+  extends Actor
+    with ActorLogging {
 
   type JLong = java.lang.Long
 
   val couchbase = CouchbaseExtension(context.system)
 
-  val config = CouchbaseReplayConfig(context.system)
+  val replay = CouchbaseReplayExtension(context.system)
 
   val serialization = SerializationExtension(context.system)
 
-  val bucket = couchbase.journalBucket
+  val replayConfig = replay.replayConfig
+
+  val journalBucket = couchbase.journalBucket
 
   val query = ViewQuery
     .from("recovery", "commits")
     .includeDocs(false)
-    .limit(config.batchSize)
+    .limit(replayConfig.batchSize)
 
   override def receive: Receive = {
     case ReplayActor.Recover(journalMessageId) =>
       query.stale(Stale.FALSE)
-      processNext(ReplayCursor(journalMessageId))
+      processNext(ReplayCursor(journalMessageId.orElse(replay.readMessageId(ReplayActor.replayId))))
       query.stale(Stale.TRUE)
   }
 
@@ -45,7 +49,12 @@ class ReplayActor(callback: ReplayCallback) extends Actor {
   def processNext(cursor: ReplayCursor): Unit = {
     processBatch(cursor) match {
       case identical if identical == cursor =>
-        callback.onReplayComplete(cursor.journalMessageId.getOrElse(Long.MinValue))
+        for (journalMessageId <- cursor.journalMessageIdOption) {
+          replay.storeMessageId(ReplayActor.replayId, journalMessageId)
+        }
+
+        callback.onReplayComplete(cursor.journalMessageIdOption)
+
         context.stop(self)
 
       case next =>
@@ -55,12 +64,12 @@ class ReplayActor(callback: ReplayCallback) extends Actor {
   }
 
   def processBatch(cursor: ReplayCursor): ReplayCursor = {
-    cursor.journalMessageId.fold(query) { journalMessageId =>
+    cursor.journalMessageIdOption.fold(query) { journalMessageId =>
       query
         .skip(1)
         .startKey(
           JsonArray.from(
-            cursor.journalMessageId.getOrElse(Long.MinValue).asInstanceOf[JLong],
+            cursor.journalMessageIdOption.getOrElse(Long.MinValue).asInstanceOf[JLong],
             cursor.sequenceNrOption.getOrElse(Long.MinValue).asInstanceOf[JLong]
           )
         )
@@ -70,7 +79,7 @@ class ReplayActor(callback: ReplayCallback) extends Actor {
       query.startKeyDocId(docId)
     }
 
-    val viewRowIterator = bucket.query(query, config.timeout.toSeconds, TimeUnit.SECONDS).iterator().asScala
+    val viewRowIterator = journalBucket.query(query, replayConfig.timeout.toSeconds, TimeUnit.SECONDS).iterator().asScala
 
     viewRowIterator.foldLeft(cursor) { case (acc, viewRow) =>
 
@@ -98,6 +107,8 @@ class ReplayActor(callback: ReplayCallback) extends Actor {
 }
 
 object ReplayActor {
+
+  val replayId = "default"
 
   def props(callback: ReplayCallback): Props = Props(classOf[ReplayActor], callback)
 

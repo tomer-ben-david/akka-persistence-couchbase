@@ -52,7 +52,6 @@ class CouchbaseReplaySpec
 
   implicit val patienceConfig = PatienceConfig(timeout = Span.convertDurationToSpan(30.seconds))
 
-
   "Couchbase replay" must {
 
     "replay empty store" in new Fixture {
@@ -67,19 +66,32 @@ class CouchbaseReplaySpec
 
         replayCollector.hasFailures shouldBe false
         replayCollector.replayedEvents should have size values.size.toLong
-        replayCollector.replayCompletes should contain theSameElementsAs Seq(values.size - 1)
+        replayCollector.replayCompletes should contain theSameElementsAs Seq(Some(values.size - 1))
       }
     }
 
     "resume replay events" in new Fixture {
 
-      val journalMessageId = whenReady(createEvents(10)) { values =>
+      whenReady(createEvents(10)) { values =>
         val replayCollector = replay()
         replayCollector.replayCompletes.headOption.get
       }
 
       whenReady(createEvents(10)) { values =>
-        val replayCollector = replay(Some(journalMessageId))
+        val replayCollector = replay()
+        replayCollector.replayedEvents should have size values.size.toLong
+      }
+    }
+
+    "resume replay events from specified journal id" in new Fixture {
+
+      val journalMessageIdOption = whenReady(createEvents(10)) { values =>
+        val replayCollector = replay()
+        replayCollector.replayCompletes.headOption.get
+      }
+
+      whenReady(createEvents(10)) { values =>
+        val replayCollector = replay(journalMessageIdOption)
         replayCollector.replayedEvents should have size values.size.toLong
       }
     }
@@ -100,7 +112,7 @@ class CouchbaseReplaySpec
 
     var replayedEvents: Vector[(Long, Try[PersistentRepr])] = Vector.empty
 
-    var replayCompletes: Vector[Long] = Vector.empty
+    var replayCompletes: Vector[Option[Long]] = Vector.empty
 
     var replayFailures: Vector[Throwable] = Vector.empty
 
@@ -108,8 +120,8 @@ class CouchbaseReplaySpec
       replayedEvents = replayedEvents :+ journalMessageId -> persistentReprAttempt
     }
 
-    override def onReplayComplete(journalMessageId: Long): Unit = {
-      replayCompletes = replayCompletes :+ journalMessageId
+    override def onReplayComplete(journalMessageIdOption: Option[Long]): Unit = {
+      replayCompletes = replayCompletes :+ journalMessageIdOption
     }
 
     override def onReplayFailed(reason: Throwable): Unit = {
@@ -134,8 +146,8 @@ class CouchbaseReplaySpec
           replayCollector.replay(journalMessageId, persistentReprAttempt)
         }
 
-        override def onReplayComplete(journalMessageId: Long): Unit = {
-          replayCollector.onReplayComplete(journalMessageId)
+        override def onReplayComplete(journalMessageIdOption: Option[Long]): Unit = {
+          replayCollector.onReplayComplete(journalMessageIdOption)
           countDownLatch.countDown()
         }
 

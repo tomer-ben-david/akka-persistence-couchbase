@@ -8,7 +8,7 @@ trait ReplayCallback {
 
   def replay(journalMessageId: Long, persistentReprAttempt: Try[PersistentRepr]): Unit = {}
 
-  def onReplayComplete(journalMessageId: Long): Unit = {}
+  def onReplayComplete(journalMessageId: Option[Long]): Unit = {}
 
   def onReplayFailed(reason: Throwable): Unit = {}
 }

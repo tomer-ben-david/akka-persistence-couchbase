@@ -1,17 +1,12 @@
 package akka.persistence.couchbase.replay
 
-import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorSystem
+import akka.persistence.couchbase.{CouchbasePluginConfig, DefaultCouchbasePluginConfig}
 import com.typesafe.config.Config
 
-import scala.concurrent.duration.FiniteDuration
-
-trait CouchbaseReplayConfig {
+trait CouchbaseReplayConfig extends CouchbasePluginConfig {
 
   def batchSize: Int
-
-  def timeout: FiniteDuration
 
   def replayViewCode: String
 }
@@ -22,11 +17,11 @@ object CouchbaseReplayConfig {
   }
 }
 
-class DefaultCouchbaseReplayConfig(config: Config) extends CouchbaseReplayConfig {
+class DefaultCouchbaseReplayConfig(config: Config)
+  extends DefaultCouchbasePluginConfig(config)
+    with CouchbaseReplayConfig {
 
   override val batchSize: Int = config.getInt("batchSize")
-
-  override val timeout: FiniteDuration = FiniteDuration(config.getDuration("timeout").getSeconds, TimeUnit.SECONDS)
 
   override val replayViewCode: String = config.getString("replay-view-code")
 }

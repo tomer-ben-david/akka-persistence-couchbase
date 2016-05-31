@@ -1,8 +1,11 @@
 package akka.persistence.couchbase.replay
 
+import java.util.concurrent.TimeUnit
+
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import akka.event.Logging
 import akka.persistence.couchbase.CouchbaseExtension
+import com.couchbase.client.java.document.JsonLongDocument
 import com.couchbase.client.java.document.json.JsonObject
 import com.couchbase.client.java.view._
 
@@ -10,7 +13,13 @@ import scala.util.{Failure, Try}
 
 trait CouchbaseReplay extends Extension {
 
+  def replayConfig: CouchbaseReplayConfig
+
   def replay(callback: ReplayCallback, journalMessageIdOption: Option[Long] = None): Unit
+
+  def storeMessageId(identifier: String, journalMessageId: Long): Unit
+
+  def readMessageId(identifier: String): Option[Long]
 }
 
 private class DefaultCouchbaseReplay(val system: ExtendedActorSystem) extends CouchbaseReplay {
@@ -19,9 +28,11 @@ private class DefaultCouchbaseReplay(val system: ExtendedActorSystem) extends Co
 
   val couchbase = CouchbaseExtension(system)
 
-  val bucket = couchbase.journalBucket
+  override val replayConfig = CouchbaseReplayConfig(system)
 
-  val config = CouchbaseReplayConfig(system)
+  val cluster = replayConfig.createCluster(couchbase.environment)
+
+  val replayBucket = replayConfig.openBucket(cluster)
 
   updateJournalDesignDocs()
 
@@ -29,13 +40,13 @@ private class DefaultCouchbaseReplay(val system: ExtendedActorSystem) extends Co
     val designDocs = JsonObject.create()
       .put("views", JsonObject.create()
         .put("commits", JsonObject.create()
-          .put("map", config.replayViewCode)
+          .put("map", replayConfig.replayViewCode)
         )
       )
 
     Try {
       val designDocument = DesignDocument.from("recovery", designDocs)
-      bucket.bucketManager.upsertDesignDocument(designDocument)
+      couchbase.journalBucket.bucketManager.upsertDesignDocument(designDocument)
     } recoverWith {
       case e =>
         log.error(e, "Updating design documents for recovery")
@@ -45,6 +56,32 @@ private class DefaultCouchbaseReplay(val system: ExtendedActorSystem) extends Co
 
   override def replay(callback: ReplayCallback, journalMessageIdOption: Option[Long]): Unit = {
     system.actorOf(ReplayActor.props(callback)) ! ReplayActor.Recover(journalMessageIdOption)
+  }
+
+  override def storeMessageId(identifier: String, journalMessageId: Long): Unit = {
+    Try {
+      replayBucket.upsert(
+        JsonLongDocument.create(s"replayId::$identifier", journalMessageId),
+        replayConfig.persistTo,
+        replayConfig.replicateTo,
+        replayConfig.timeout.toSeconds,
+        TimeUnit.SECONDS
+      )
+    } recoverWith {
+      case e =>
+        log.error(e, "Store replay id: {}", journalMessageId)
+        Failure(e)
+    }
+  }
+
+  override def readMessageId(identifier: String): Option[Long] = {
+    Option(
+      replayBucket.get(
+        JsonLongDocument.create(s"replayId::$identifier"),
+        replayConfig.timeout.toSeconds,
+        TimeUnit.SECONDS
+      )
+    ).map(_.content())
   }
 }
 

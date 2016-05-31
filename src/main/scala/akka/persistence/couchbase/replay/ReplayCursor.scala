@@ -1,12 +1,12 @@
 package akka.persistence.couchbase.replay
 
-case class ReplayCursor private(journalMessageId: Option[Long],
+case class ReplayCursor private(journalMessageIdOption: Option[Long],
                                 sequenceNrOption: Option[Long],
                                 docIdOption: Option[String]) {
 
   def update(journalMessageId: Long, sequenceNr: Long, docId: String) = {
     copy(
-      journalMessageId = Some(journalMessageId),
+      journalMessageIdOption = Some(journalMessageId),
       sequenceNrOption = Some(sequenceNr),
       docIdOption = Some(docId)
     )
