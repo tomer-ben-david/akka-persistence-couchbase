@@ -6,7 +6,7 @@ import scala.util.Try
 
 trait ReplayCallback {
 
-  def replay(journalMessageId: Long, persistentReprAttemp: Try[PersistentRepr]): Unit = {}
+  def replay(journalMessageId: Long, persistentReprAttempt: Try[PersistentRepr]): Unit = {}
 
   def onReplayComplete(journalMessageId: Long): Unit = {}
 

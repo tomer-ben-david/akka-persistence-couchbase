@@ -45,7 +45,7 @@ class ReplayActor(callback: ReplayCallback) extends Actor {
   def processNext(cursor: ReplayCursor): Unit = {
     processBatch(cursor) match {
       case identical if identical == cursor =>
-        callback.onReplayComplete(cursor.journalMessageId)
+        callback.onReplayComplete(cursor.journalMessageId.getOrElse(Long.MinValue))
         context.stop(self)
 
       case next =>
@@ -55,14 +55,19 @@ class ReplayActor(callback: ReplayCallback) extends Actor {
   }
 
   def processBatch(cursor: ReplayCursor): ReplayCursor = {
-    query
-      .startKey(JsonArray.from(cursor.journalMessageId.asInstanceOf[JLong], cursor.sequenceNrOption.getOrElse(Long.MinValue).asInstanceOf[JLong]))
-      .inclusiveEnd(true)
+    cursor.journalMessageId.fold(query) { journalMessageId =>
+      query
+        .skip(1)
+        .startKey(
+          JsonArray.from(
+            cursor.journalMessageId.getOrElse(Long.MinValue).asInstanceOf[JLong],
+            cursor.sequenceNrOption.getOrElse(Long.MinValue).asInstanceOf[JLong]
+          )
+        )
+    }
 
     cursor.docIdOption.foreach { docId =>
-      query
-        .startKeyDocId(docId)
-        .skip(1)
+      query.startKeyDocId(docId)
     }
 
     val viewRowIterator = bucket.query(query, config.timeout.toSeconds, TimeUnit.SECONDS).iterator().asScala
@@ -96,7 +101,7 @@ object ReplayActor {
 
   def props(callback: ReplayCallback): Props = Props(classOf[ReplayActor], callback)
 
-  case class Recover(journalMessageId: Long)
+  case class Recover(journalMessageIdOption: Option[Long])
 
   case object NextPage
 

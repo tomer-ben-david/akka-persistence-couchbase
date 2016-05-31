@@ -44,7 +44,7 @@ private class DefaultCouchbaseReplay(val system: ExtendedActorSystem) extends Co
   }
 
   override def replay(callback: ReplayCallback, journalMessageIdOption: Option[Long]): Unit = {
-    system.actorOf(ReplayActor.props(callback)) ! ReplayActor.Recover(journalMessageIdOption.getOrElse(Long.MinValue))
+    system.actorOf(ReplayActor.props(callback)) ! ReplayActor.Recover(journalMessageIdOption)
   }
 }
 

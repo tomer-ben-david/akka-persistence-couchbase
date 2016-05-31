@@ -1,9 +1,9 @@
 package akka.persistence.couchbase.support
 
 import akka.actor.ActorSystem
-import akka.persistence.couchbase.{LoggingConfig, CouchbaseExtension}
+import akka.persistence.couchbase.{CouchbaseExtension, LoggingConfig}
 import com.typesafe.config.ConfigFactory
-import org.scalatest.{BeforeAndAfterAll, Suite}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, Suite}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -38,12 +38,15 @@ object CouchbasePluginSpec {
       |
       |couchbase-replay {
       |
-      |  batchSize = "10"
+      |  batchSize = "4"
       |}
     """.stripMargin)
 }
 
-trait CouchbasePluginSpec extends Suite with BeforeAndAfterAll {
+trait CouchbasePluginSpec
+  extends Suite
+    with BeforeAndAfter
+    with BeforeAndAfterAll {
 
   System.setProperty("java.util.logging.config.class", classOf[LoggingConfig].getName)
 
@@ -51,8 +54,7 @@ trait CouchbasePluginSpec extends Suite with BeforeAndAfterAll {
 
   def couchbase = CouchbaseExtension(system)
 
-  protected override def beforeAll(): Unit = {
-    super.beforeAll()
+  before {
     assert(couchbase.journalBucket.bucketManager.flush())
     assert(couchbase.snapshotStoreBucket.bucketManager.flush())
   }

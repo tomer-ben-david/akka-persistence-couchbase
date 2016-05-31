@@ -13,7 +13,7 @@ import org.scalatest.time.Span
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 class EchoActor(val persistenceId: String) extends PersistentActor {
 
@@ -48,54 +48,105 @@ class CouchbaseReplaySpec
 
   implicit val ec = system.dispatcher
 
-  implicit val timeout = Timeout(10.seconds)
+  implicit val timeout = Timeout(30.seconds)
 
-  implicit val patienceConfig = PatienceConfig(timeout = Span.convertDurationToSpan(20.seconds))
+  implicit val patienceConfig = PatienceConfig(timeout = Span.convertDurationToSpan(30.seconds))
 
 
   "Couchbase replay" must {
 
-    "replay empty store" in {
-      val replay = CouchbaseReplayExtension(system)
-      replay.replay(new ReplayCallback {
-        override def replay(journalMessageId: Long, any: Try[PersistentRepr]): Unit = {
-          fail("Should not replay for empty store")
-        }
-      })
+    "replay empty store" in new Fixture {
+      val replayCollector = replay()
+      replayCollector.replayedEvents shouldBe empty
     }
 
-    "replay events" in {
+    "replay all events" in new Fixture {
 
-      val valueFutures = 1 to 100 map { i =>
-        val echoActor = system.actorOf(EchoActor.props(i.toString), i.toString)
+      whenReady(createEvents(10)) { values =>
+        val replayCollector = replay()
+
+        replayCollector.hasFailures shouldBe false
+        replayCollector.replayedEvents should have size values.size.toLong
+        replayCollector.replayCompletes should contain theSameElementsAs Seq(values.size - 1)
+      }
+    }
+
+    "resume replay events" in new Fixture {
+
+      val journalMessageId = whenReady(createEvents(10)) { values =>
+        val replayCollector = replay()
+        replayCollector.replayCompletes.headOption.get
+      }
+
+      whenReady(createEvents(10)) { values =>
+        val replayCollector = replay(Some(journalMessageId))
+        replayCollector.replayedEvents should have size values.size.toLong
+      }
+    }
+
+    def createEvents(count: Int): Future[Seq[Any]] = {
+      val futures = 0 until count map { i =>
+        val echoActor = system.actorOf(EchoActor.props(i.toString))
         echoActor ? Echo(i) collect {
           case response => response
         }
       }
 
-      val latch = new CountDownLatch(1)
+      Future.sequence(futures)
+    }
+  }
 
-      whenReady(Future.sequence(valueFutures)) { values =>
+  class ReplayCollector extends ReplayCallback {
 
-        val replay = CouchbaseReplayExtension(system)
+    var replayedEvents: Vector[(Long, Try[PersistentRepr])] = Vector.empty
 
-        replay.replay(new ReplayCallback {
-          override def replay(journalMessageId: Long, persistentReprAttempt: Try[PersistentRepr]): Unit = persistentReprAttempt match {
-            case Success(persistentRepr) =>
-              values should contain (persistentRepr.payload)
+    var replayCompletes: Vector[Long] = Vector.empty
 
-            case Failure(e) =>
-              fail(e)
-          }
+    var replayFailures: Vector[Throwable] = Vector.empty
 
-          override def onReplayComplete(journalMessageId: Long): Unit = {
-            journalMessageId shouldBe valueFutures.size - 1
-            latch.countDown()
-          }
-        })
+    override def replay(journalMessageId: Long, persistentReprAttempt: Try[PersistentRepr]): Unit = {
+      replayedEvents = replayedEvents :+ journalMessageId -> persistentReprAttempt
+    }
 
-        latch.await(timeout.duration.toSeconds, TimeUnit.SECONDS)
-      }
+    override def onReplayComplete(journalMessageId: Long): Unit = {
+      replayCompletes = replayCompletes :+ journalMessageId
+    }
+
+    override def onReplayFailed(reason: Throwable): Unit = {
+      replayFailures = replayFailures :+ reason
+    }
+
+    def hasFailures = {
+      replayedEvents.exists(_._2.isFailure)
+    }
+  }
+
+  trait Fixture {
+    val replayExtension = CouchbaseReplayExtension(system)
+
+    def replay(journalMessageIdOption: Option[Long] = None): ReplayCollector = {
+      val replayCollector = new ReplayCollector
+      val countDownLatch = new CountDownLatch(1)
+
+      replayExtension.replay(new ReplayCallback {
+
+        override def replay(journalMessageId: Long, persistentReprAttempt: Try[PersistentRepr]): Unit = {
+          replayCollector.replay(journalMessageId, persistentReprAttempt)
+        }
+
+        override def onReplayComplete(journalMessageId: Long): Unit = {
+          replayCollector.onReplayComplete(journalMessageId)
+          countDownLatch.countDown()
+        }
+
+        override def onReplayFailed(reason: Throwable): Unit = {
+          replayCollector.onReplayFailed(reason)
+          countDownLatch.countDown()
+        }
+      }, journalMessageIdOption)
+
+      countDownLatch.await(timeout.duration.toSeconds, TimeUnit.SECONDS)
+      replayCollector
     }
   }
 }
