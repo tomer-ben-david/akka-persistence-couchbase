@@ -19,3 +19,6 @@ project/plugins/project/
 # IntelliJ IDEA specific
 .idea
 *.iml
+
+# Netbeans specific
+.classpath_nb
