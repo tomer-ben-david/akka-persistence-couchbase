@@ -8,6 +8,7 @@ import com.couchbase.client.java.Bucket
 import com.couchbase.client.java.document.JsonDocument
 import com.couchbase.client.java.document.json.JsonArray
 import com.couchbase.client.java.view._
+import rx.Observable
 
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
@@ -52,6 +53,33 @@ trait CouchbaseStatements extends Actor with ActorLogging {
           log.error(e, "Writing batch: {}", key)
           Failure(e)
       }
+    }
+  }
+
+  /**
+    * removes a batch of journal messages
+   */
+  def deleteBatch(sequenceIds: Seq[Long]): Try[Unit] = {
+    Try {
+      val keyBatch = sequenceIds collect { case i => s"${JournalMessageBatch.name}-$i" }
+
+      val requestResults: Seq[Observable[JsonDocument]] = keyBatch.map(key => bucket.async()
+                                                                                    .remove(key,
+                                                                                            config.persistTo,
+                                                                                            config.replicateTo))
+
+      def mergeObservables(res: Observable[JsonDocument], i:Observable[JsonDocument]) = {
+        res.mergeWith(i)
+      }
+
+      val mergedObservables: Observable[JsonDocument] = requestResults.fold(Observable.empty()) (mergeObservables)
+
+//      wait until all the observable are done
+      val result = mergedObservables.toList.toBlocking.single()
+    } recoverWith {
+      case e =>
+        log.error(e, "Deleting batch")
+        Failure(e)
     }
   }
 

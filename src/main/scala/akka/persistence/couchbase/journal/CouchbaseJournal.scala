@@ -21,6 +21,8 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
 
   override def bucket = couchbase.journalBucket
 
+  val tombstone = couchbase.journalConfig.tombstone
+
   override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
 
     val serialized = messages.map(atomicWrite => Try {
@@ -73,14 +75,19 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
 
       CouchbaseRecovery.replayMessages(persistenceId, 0L, toSequenceNr, Long.MaxValue) { persistent =>
         if (!toDelete.headOption.contains(persistent.sequenceNr)) {
-          toDelete = persistent.sequenceNr :: toDelete
+//          -1 because it should take into account journal message sequence number 0
+          toDelete = (persistent.sequenceNr-1) :: toDelete
         }
       }.flatMap { _ =>
         val groups = toDelete.reverse.grouped(config.maxMessageBatchSize)
         groups.foldLeft[Try[Unit]](Success({})) { case (acc, group) =>
           acc.flatMap { _ =>
-            executeBatch {
-              group.map(sequenceNr => JournalMessage(persistenceId, sequenceNr, Marker.MessageDeleted))
+            if (tombstone) {
+              executeBatch { // add tombstone document
+                group.map(sequenceNr => JournalMessage(persistenceId, sequenceNr, Marker.MessageDeleted))
+              }
+            } else { // physically remove the document
+              deleteBatch(group)
             }
           }
         }
