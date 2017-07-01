@@ -60,6 +60,8 @@ trait CouchbaseJournalConfig extends CouchbasePluginConfig {
 
   def maxMessageBatchSize: Int
 
+  def tombstone: Boolean
+
 }
 
 class DefaultCouchbaseJournalConfig(config: Config)
@@ -69,6 +71,8 @@ class DefaultCouchbaseJournalConfig(config: Config)
   override val replayDispatcherId = config.getString("replay-dispatcher")
 
   override val maxMessageBatchSize = config.getInt("max-message-batch-size")
+
+  override val tombstone = config.getBoolean("tombstone")
 }
 
 object CouchbaseJournalConfig {
