@@ -75,8 +75,7 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
 
       CouchbaseRecovery.replayMessages(persistenceId, 0L, toSequenceNr, Long.MaxValue) { persistent =>
         if (!toDelete.headOption.contains(persistent.sequenceNr)) {
-//          -1 because it should take into account journal message sequence number 0
-          toDelete = (persistent.sequenceNr-1) :: toDelete
+          toDelete = persistent.sequenceNr :: toDelete
         }
       }.flatMap { _ =>
         val groups = toDelete.reverse.grouped(config.maxMessageBatchSize)
