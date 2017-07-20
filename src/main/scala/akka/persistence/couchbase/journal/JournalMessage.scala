@@ -20,7 +20,8 @@ case class JournalMessage(persistenceId: String,
                           marker: Marker.Marker,
                           manifest: Option[String] = None,
                           message: Option[Message] = None,
-                          tags: Set[String] = Set.empty)
+                          tags: Set[String] = Set.empty,
+                          journalId: Option[String] = None)
 
 object JournalMessage {
 
@@ -46,7 +47,7 @@ object JournalMessage {
     jsonObject
   }
 
-  def deserialize(jsonObject: JsonObject): JournalMessage = {
+  def deserialize(jsonObject: JsonObject, documentId: String): JournalMessage = {
     JournalMessage(
       jsonObject.getString("persistenceId"),
       jsonObject.getLong("sequenceNr"),
@@ -55,7 +56,8 @@ object JournalMessage {
       Option(jsonObject.getString("message")).map(Message.deserialize),
       Option(jsonObject.getArray("tags")).map { tagArray =>
         tagArray.iterator().asScala.map(_.asInstanceOf[String]).toSet
-      }.getOrElse(Set.empty)
+      }.getOrElse(Set.empty),
+      Option(documentId)
     )
   }
 }

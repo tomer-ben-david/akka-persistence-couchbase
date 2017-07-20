@@ -34,6 +34,17 @@ trait CouchbaseRecovery {
       Try(new PersistentIterator(persistenceId, fromSequenceNr, toSequenceNr, max).foreach(replayCallback))
     }
 
+    def retrieveMessages(max: Long, fromSequenceNr: Long, toSequenceNr: Long, persistenceId: String): Iterator[JournalMessage] ={
+      if (max == 0 || fromSequenceNr > toSequenceNr) {
+        List.empty[JournalMessage].iterator
+      } else {
+        val query = bySequenceNr(persistenceId, fromSequenceNr, toSequenceNr)
+        bucket.query(query, config.timeout.toSeconds, TimeUnit.SECONDS).iterator.asScala.map { viewRow =>
+          JournalMessage.deserialize(viewRow.value().asInstanceOf[JsonObject], viewRow.id())
+        }
+      }
+    }
+
     /**
       * Iterator over persistent repr.
       */
@@ -43,19 +54,7 @@ trait CouchbaseRecovery {
 
       def highestSequenceNr = highestSequenceNrInternal
 
-      def journalMessageIterator(): Iterator[JournalMessage] = {
-
-        if (max == 0 || fromSequenceNr > toSequenceNr) {
-          List.empty[JournalMessage].iterator
-        } else {
-          val query = bySequenceNr(persistenceId, fromSequenceNr, toSequenceNr)
-          bucket.query(query, config.timeout.toSeconds, TimeUnit.SECONDS).iterator.asScala.map { viewRow =>
-            JournalMessage.deserialize(viewRow.value().asInstanceOf[JsonObject])
-          }
-        }
-      }
-
-      private val messageIterator = journalMessageIterator()
+      private val messageIterator = retrieveMessages(max, fromSequenceNr, toSequenceNr, persistenceId)
       private var remaining = max
       private var current: List[PersistentRepr] = List.empty
       private var upcoming: List[PersistentRepr] = List.empty

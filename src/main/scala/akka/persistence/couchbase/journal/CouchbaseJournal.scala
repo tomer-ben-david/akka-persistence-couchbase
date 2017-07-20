@@ -65,32 +65,57 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
         acc.flatMap { _ =>
           executeBatch(batch)
         }
-      }.map (_ => result)
+      }.map(_ => result)
     }
   }
 
   override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] = {
     Future.fromTry[Unit] {
-      var toDelete: List[Long] = Nil
+      if (tombstone)
+        // add tombstone document
+        addTombstone(persistenceId, toSequenceNr)
+      else
+        //physically remove journals from the bucket
+        physicalRemove(persistenceId, toSequenceNr)
+    }
+  }
 
-      CouchbaseRecovery.replayMessages(persistenceId, 0L, toSequenceNr, Long.MaxValue) { persistent =>
-        if (!toDelete.headOption.contains(persistent.sequenceNr)) {
-          toDelete = persistent.sequenceNr :: toDelete
-        }
-      }.flatMap { _ =>
-        val groups = toDelete.reverse.grouped(config.maxMessageBatchSize)
-        groups.foldLeft[Try[Unit]](Success({})) { case (acc, group) =>
-          acc.flatMap { _ =>
-            if (tombstone) {
-              executeBatch { // add tombstone document
-                group.map(sequenceNr => JournalMessage(persistenceId, sequenceNr, Marker.MessageDeleted))
-              }
-            } else { // physically remove the document
-              deleteBatch(group)
-            }
+  def physicalRemove(persistenceId: String, toSequenceNr: Long): Try[Unit] = {
+    var toDelete: List[String] = Nil
+
+    val journalMessage = CouchbaseRecovery.retrieveMessages(Long.MaxValue, 0L, toSequenceNr, persistenceId)
+
+    journalMessage.foreach(journalMessage => {
+      journalMessage.journalId match {
+          case Some(journalId) => toDelete = journalId :: toDelete
+          case None => "do nothing"
+      }
+    })
+
+    if (toDelete.nonEmpty) //if the list contains any ids then remove them from the bucket
+      deleteBatch(toDelete)
+    else { //there is nothing to remove from the bucket so just log and exit
+      log.debug("There is nothing to remove")
+      Try{}
+    }
+  }
+
+  def addTombstone(persistenceId: String, toSequenceNr: Long): Try[Unit] = {
+    var toDelete: List[Long] = Nil
+    CouchbaseRecovery.replayMessages(persistenceId, 0L, toSequenceNr, Long.MaxValue) { persistent =>
+      if (!toDelete.headOption.contains(persistent.sequenceNr)) {
+        toDelete = persistent.sequenceNr :: toDelete
+      }
+    }.flatMap { _ =>
+      val groups = toDelete.reverse.grouped(config.maxMessageBatchSize)
+      groups.foldLeft[Try[Unit]](Success({})) { case (acc, group) =>
+        acc.flatMap { _ =>
+          executeBatch {
+            group.map(sequenceNr => JournalMessage(persistenceId, sequenceNr, Marker.MessageDeleted))
           }
         }
       }
     }
   }
+
 }
