@@ -39,7 +39,6 @@ val akkaVer = "2.5.3"
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-persistence" % akkaVer,
   "com.couchbase.client" % "java-client" % "2.4.7",
-  "com.couchbase.client" % "core-io" % "1.4.7",
   "commons-codec" % "commons-codec" % "1.10",
   "com.typesafe.akka" %% "akka-persistence-tck" % akkaVer % "test",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
