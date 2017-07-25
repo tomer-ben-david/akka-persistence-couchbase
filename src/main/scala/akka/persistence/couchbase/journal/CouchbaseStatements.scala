@@ -9,6 +9,7 @@ import com.couchbase.client.java.document.JsonDocument
 import com.couchbase.client.java.document.json.JsonArray
 import com.couchbase.client.java.view._
 import rx.Observable
+import rx.functions.Func1
 
 import scala.collection.immutable.Seq
 import scala.concurrent.ExecutionContext
@@ -59,23 +60,21 @@ trait CouchbaseStatements extends Actor with ActorLogging {
   /**
     * removes a batch of journal messages
    */
-  def deleteBatch(sequenceIds: Seq[Long]): Try[Unit] = {
+  def deleteBatch(journalIds: Seq[String]): Try[Unit] = {
     Try {
-      val keyBatch = sequenceIds collect { case i => s"${JournalMessageBatch.name}-$i" }
+      val keyBatch = journalIds.toArray
 
-      val requestResults: Seq[Observable[JsonDocument]] = keyBatch.map(key => bucket.async()
-                                                                                    .remove(key,
-                                                                                            config.persistTo,
-                                                                                            config.replicateTo))
+      //batching mutation to remove data from the bucket
+      Observable.from(keyBatch)
+                .flatMap(new Func1[String, Observable[JsonDocument]] {
+                    override def call(id: String): Observable[JsonDocument] = {
+                        bucket.async().remove(id,
+                                              config.persistTo,
+                                              config.replicateTo)
+                    }
+                }).last.toBlocking.single
 
-      def mergeObservables(res: Observable[JsonDocument], i:Observable[JsonDocument]) = {
-        res.mergeWith(i)
-      }
-
-      val mergedObservables: Observable[JsonDocument] = requestResults.fold(Observable.empty()) (mergeObservables)
-
-//      wait until all the observable are done
-      val result = mergedObservables.toList.toBlocking.single()
+      log.debug("A batch of entries was removed!")
     } recoverWith {
       case e =>
         log.error(e, "Deleting batch")

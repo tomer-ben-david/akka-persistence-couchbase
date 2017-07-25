@@ -34,11 +34,11 @@ licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html
 
 bintrayOrganization := Some("productfoundry")
 
-val akkaVer = "2.4.6"
+val akkaVer = "2.5.3"
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-persistence" % akkaVer,
-  "com.couchbase.client" % "java-client" % "2.2.7",
+  "com.couchbase.client" % "java-client" % "2.4.7",
   "commons-codec" % "commons-codec" % "1.10",
   "com.typesafe.akka" %% "akka-persistence-tck" % akkaVer % "test",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",

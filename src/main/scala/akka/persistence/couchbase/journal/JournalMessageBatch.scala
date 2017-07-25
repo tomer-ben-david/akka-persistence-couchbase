@@ -26,12 +26,12 @@ object JournalMessageBatch {
       .put("messages", journalMessageBatch.messages.map(JournalMessage.serialize).foldLeft(JsonArray.create())(_ add _))
   }
 
-  def deserialize(jsonObject: JsonObject): JournalMessageBatch = {
+  def deserialize(jsonObject: JsonObject, documentId: String): JournalMessageBatch = {
 
     JournalMessageBatch(
       jsonObject.getString("dataType"),
       jsonObject.getArray("messages").iterator().asScala.map {
-        message => JournalMessage.deserialize(message.asInstanceOf[JsonObject])
+        message => JournalMessage.deserialize(message.asInstanceOf[JsonObject], documentId)
       }.toSeq
     )
   }
