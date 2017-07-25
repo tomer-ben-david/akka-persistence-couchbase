@@ -8,7 +8,7 @@ Couchbase Plugins for Akka Persistence
 [![Codacy Coverage](https://api.codacy.com/project/badge/coverage/08a13960705442a4ae6b45471d38ee40)](https://www.codacy.com/app/Product-Foundry/akka-persistence-couchbase)
 [![Download](https://api.bintray.com/packages/productfoundry/maven/akka-persistence-couchbase/images/download.svg) ](https://bintray.com/productfoundry/maven/akka-persistence-couchbase/_latestVersion)
 
-Replicated [Akka Persistence](http://doc.akka.io/docs/akka/2.4.6/scala/persistence.html) journal and snapshot store backed by [Couchbase](http://www.couchbase.com/).
+Replicated [Akka Persistence](http://doc.akka.io/docs/akka/2.5.3/scala/persistence.html) journal and snapshot store backed by [Couchbase](http://www.couchbase.com/).
 
 Dependencies
 ------------
@@ -19,18 +19,18 @@ To include the latest release of the Couchbase plugins into your `sbt` project, 
 
     resolvers += "Product-Foundry at bintray" at "http://dl.bintray.com/productfoundry/maven"
 
-    libraryDependencies += "com.productfoundry" %% "akka-persistence-couchbase" % "0.5"
+    libraryDependencies += "com.productfoundry" %% "akka-persistence-couchbase" % "0.6"
 
-This version of `akka-persistence-couchbase` depends on Akka 2.4.6 and Scala 2.11.8.
+This version of `akka-persistence-couchbase` depends on Akka 2.5.3 and Scala 2.11.8.
 
-It is tested with Couchbase 3.1.0.
+It is tested on Travis using Couchbase 3.0.1
 
 Journal plugin
 --------------
 
 ### Features
 
-- All operations required by the Akka Persistence [journal plugin API](http://doc.akka.io/docs/akka/2.4.6/scala/persistence.html#journal-plugin-api) are fully supported.
+- All operations required by the Akka Persistence [journal plugin API](http://doc.akka.io/docs/akka/2.5.3/scala/persistence.html#journal-plugin-api) are fully supported.
 - The plugin uses Couchbase in a pure log-oriented way i.e. data are only ever inserted but never updated (deletions are made using deletion markers, rather than performing physical deletion).
 - Batches are stored in a single Couchbase message to maintain atomicity.
 
@@ -51,7 +51,7 @@ Snapshot store plugin
 
 ### Features
 
-- Implements the Akka Persistence [snapshot store plugin API](http://doc.akka.io/docs/akka/2.4.6/scala/persistence.html#snapshot-store-plugin-api).
+- Implements the Akka Persistence [snapshot store plugin API](http://doc.akka.io/docs/akka/2.5.3/scala/persistence.html#snapshot-store-plugin-api).
 
 ### Configuration
 
