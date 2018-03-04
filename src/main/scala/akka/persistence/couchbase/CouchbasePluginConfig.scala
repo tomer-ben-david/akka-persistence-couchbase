@@ -4,6 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import com.couchbase.client.java._
+import com.couchbase.client.java.auth.PasswordAuthenticator
 import com.couchbase.client.java.env.CouchbaseEnvironment
 import com.couchbase.client.java.view.Stale
 import com.typesafe.config.Config
@@ -24,6 +25,8 @@ trait CouchbasePluginConfig {
 
   def bucketName: String
 
+  def username: Option[String]
+
   def bucketPassword: Option[String]
 }
 
@@ -43,6 +46,8 @@ abstract class DefaultCouchbasePluginConfig(config: Config) extends CouchbasePlu
 
   override val bucketName: String = bucketConfig.getString("bucket")
 
+  override val username: Option[String] = Some(bucketConfig.getString("username")).filter(_.nonEmpty)
+
   override val bucketPassword: Option[String] = Some(bucketConfig.getString("password")).filter(_.nonEmpty)
 
   private[couchbase] def createCluster(environment: CouchbaseEnvironment): Cluster = {
@@ -50,7 +55,14 @@ abstract class DefaultCouchbasePluginConfig(config: Config) extends CouchbasePlu
   }
 
   private[couchbase] def openBucket(cluster: Cluster): Bucket = {
-    cluster.openBucket(bucketName, bucketPassword.orNull)
+    username match {
+      case None =>
+        cluster.openBucket(bucketName, bucketPassword.orNull)
+      case Some(user) =>
+        cluster.authenticate(new PasswordAuthenticator(user, bucketPassword.orNull))
+        cluster.openBucket(bucketName)
+    }
+
   }
 }
 
