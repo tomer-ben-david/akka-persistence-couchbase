@@ -25,7 +25,7 @@ trait Couchbase extends Extension {
   def snapshotStoreConfig: CouchbaseSnapshotStoreConfig
 }
 
-private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbase {
+private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbase with CouchbasePersistencyClientContainer {
 
   private val log = Logging(system, getClass.getName)
 
@@ -35,13 +35,13 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
 
   override val environment = DefaultCouchbaseEnvironment.create()
 
-  private val journalCluster = journalConfig.createCluster(environment)
+  private val journalCluster =  client.createCluster(environment, journalConfig.nodes) // journalConfig.createCluster(environment)
 
-  override val journalBucket = journalConfig.openBucket(journalCluster)
+  override val journalBucket = client.openBucket(journalCluster, journalConfig.username, journalConfig.bucketName, journalConfig.bucketPassword) // journalConfig.openBucket(journalCluster)
 
-  private val snapshotStoreCluster = snapshotStoreConfig.createCluster(environment)
+  private val snapshotStoreCluster = client.createCluster(environment, snapshotStoreConfig.nodes) // snapshotStoreConfig.createCluster(environment)
 
-  override val snapshotStoreBucket = snapshotStoreConfig.openBucket(snapshotStoreCluster)
+  override val snapshotStoreBucket = client.openBucket(snapshotStoreCluster, snapshotStoreConfig.username, snapshotStoreConfig.bucketName, snapshotStoreConfig.bucketPassword) // snapshotStoreConfig.openBucket(snapshotStoreCluster)
 
   updateJournalDesignDocs()
   updateSnapshotStoreDesignDocs()

@@ -3,12 +3,14 @@ package akka.persistence.couchbase
 import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
+import akka.persistence.couchbase.replay.CouchbaseReplayConfig
 import com.couchbase.client.java._
 import com.couchbase.client.java.auth.PasswordAuthenticator
 import com.couchbase.client.java.env.CouchbaseEnvironment
 import com.couchbase.client.java.view.Stale
 import com.typesafe.config.Config
 
+import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 
 trait CouchbasePluginConfig {
@@ -50,20 +52,6 @@ abstract class DefaultCouchbasePluginConfig(config: Config) extends CouchbasePlu
 
   override val bucketPassword: Option[String] = Some(bucketConfig.getString("password")).filter(_.nonEmpty)
 
-  private[couchbase] def createCluster(environment: CouchbaseEnvironment): Cluster = {
-    CouchbaseCluster.create(environment, nodes)
-  }
-
-  private[couchbase] def openBucket(cluster: Cluster): Bucket = {
-    username match {
-      case None =>
-        cluster.openBucket(bucketName, bucketPassword.orNull)
-      case Some(user) =>
-        cluster.authenticate(new PasswordAuthenticator(user, bucketPassword.orNull))
-        cluster.openBucket(bucketName)
-    }
-
-  }
 }
 
 trait CouchbaseJournalConfig extends CouchbasePluginConfig {
@@ -87,10 +75,37 @@ class DefaultCouchbaseJournalConfig(config: Config)
   override val tombstone = config.getBoolean("tombstone")
 }
 
-object CouchbaseJournalConfig {
-  def apply(system: ActorSystem) = {
-    new DefaultCouchbaseJournalConfig(system.settings.config.getConfig("couchbase-journal"))
+object CouchbaseConfigContainer {
+  val journalConfigOverrideKey = "couchbase-journal-config-override-key"
+  val snapshotConfigOverrideKey = "couchbase-snapshot-config-override-key"
+  val replayConfigOverrideKey = "couchbase-replay-config-override-key"
+
+  val overrideConfigContainer = mutable.Map[String, Any]()
+
+  def setJournalConfig(overridingJournalConfig: CouchbaseJournalConfig): Unit = overrideConfigContainer.put(journalConfigOverrideKey, overridingJournalConfig)
+  def setSnapshotConfig(overridingSnapshotConfig: CouchbaseSnapshotStoreConfig): Unit = overrideConfigContainer.put(snapshotConfigOverrideKey, overridingSnapshotConfig)
+  def setReplayConfig(overridingReplayConfig: CouchbaseReplayConfig): Unit = overrideConfigContainer.put(replayConfigOverrideKey, overridingReplayConfig)
+
+  def getJournalConfig(system: ActorSystem): CouchbaseJournalConfig = {
+    overrideConfigContainer.getOrElse(journalConfigOverrideKey,
+      new DefaultCouchbaseJournalConfig(system.settings.config.getConfig("couchbase-journal"))).asInstanceOf[CouchbaseJournalConfig]
   }
+
+  def getSnapshotConfig(system: ActorSystem): CouchbaseSnapshotStoreConfig = {
+    overrideConfigContainer.getOrElse(snapshotConfigOverrideKey,
+      new DefaultCouchbaseJournalConfig(system.settings.config.getConfig("couchbase-snapshot-store"))).asInstanceOf[CouchbaseSnapshotStoreConfig]
+  }
+
+  def getReplayConfig(system: ActorSystem): CouchbaseReplayConfig = {
+    overrideConfigContainer.getOrElse(replayConfigOverrideKey,
+      new DefaultCouchbaseJournalConfig(system.settings.config.getConfig("couchbase-replay"))).asInstanceOf[CouchbaseReplayConfig]
+  }
+
+}
+
+object CouchbaseJournalConfig {
+  def apply(system: ActorSystem) = CouchbaseConfigContainer.getJournalConfig(system)
+
 }
 
 trait CouchbaseSnapshotStoreConfig extends CouchbasePluginConfig
@@ -100,7 +115,6 @@ class DefaultCouchbaseSnapshotStoreConfig(config: Config)
     with CouchbaseSnapshotStoreConfig
 
 object CouchbaseSnapshotStoreConfig {
-  def apply(system: ActorSystem) = {
-    new DefaultCouchbaseSnapshotStoreConfig(system.settings.config.getConfig("couchbase-snapshot-store"))
-  }
+  def apply(system: ActorSystem) = CouchbaseConfigContainer.getSnapshotConfig(system)
+
 }
