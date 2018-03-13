@@ -75,7 +75,7 @@ class DefaultCouchbaseJournalConfig(config: Config)
   override val tombstone = config.getBoolean("tombstone")
 }
 
-object CouchbaseConfigContainer {
+object AkkaPersistenceCouchbaseConfigContainer {
   val journalConfigOverrideKey = "couchbase-journal-config-override-key"
   val snapshotConfigOverrideKey = "couchbase-snapshot-config-override-key"
   val replayConfigOverrideKey = "couchbase-replay-config-override-key"
@@ -104,7 +104,7 @@ object CouchbaseConfigContainer {
 }
 
 object CouchbaseJournalConfig {
-  def apply(system: ActorSystem) = CouchbaseConfigContainer.getJournalConfig(system)
+  def apply(system: ActorSystem) = AkkaPersistenceCouchbaseConfigContainer.getJournalConfig(system)
 
 }
 
@@ -115,6 +115,6 @@ class DefaultCouchbaseSnapshotStoreConfig(config: Config)
     with CouchbaseSnapshotStoreConfig
 
 object CouchbaseSnapshotStoreConfig {
-  def apply(system: ActorSystem) = CouchbaseConfigContainer.getSnapshotConfig(system)
+  def apply(system: ActorSystem) = AkkaPersistenceCouchbaseConfigContainer.getSnapshotConfig(system)
 
 }
