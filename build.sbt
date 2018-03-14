@@ -1,8 +1,8 @@
-organization := "akka-persistence-couchbase"
+organization := "com.productfoundry"
 
 name := "akka-persistence-couchbase"
 
-version := "0.6.2"
+version := "0.6.4"
 
 scalaVersion := "2.11.8"
 
@@ -32,7 +32,7 @@ resolvers ++= Seq(
 
 licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
 
-bintrayOrganization := Some("tomer")
+bintrayOrganization := Some("tomerbd")
 
 val akkaVer = "2.5.3"
 
