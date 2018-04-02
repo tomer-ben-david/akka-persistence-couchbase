@@ -2,7 +2,7 @@ package akka.persistence.couchbase.journal
 
 import akka.actor.ActorLogging
 import akka.persistence._
-import akka.persistence.couchbase.{CouchbaseExtension, Message}
+import akka.persistence.couchbase.{Couchbase, CouchbaseExtension, Message}
 import akka.persistence.journal.{AsyncWriteJournal, Tagged}
 import akka.serialization.{SerializationExtension, SerializerWithStringManifest}
 
@@ -63,7 +63,10 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
     Future.fromTry {
       batches.foldLeft[Try[Unit]](Success({})) { case (acc, batch) =>
         acc.flatMap { _ =>
-          executeBatch(batch)
+          log.info("JOURNAL Before execute batch")
+          val result = executeBatch(batch)
+          log.info("JOURNAL after execute batch")
+          result
         }
       }.map(_ => result)
     }

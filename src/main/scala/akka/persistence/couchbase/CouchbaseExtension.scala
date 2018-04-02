@@ -25,7 +25,7 @@ trait Couchbase extends Extension {
   def snapshotStoreConfig: CouchbaseSnapshotStoreConfig
 }
 
-private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbase with CouchbasePersistencyClientContainer {
+class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbase with CouchbasePersistencyClientContainer {
 
   private val log = Logging(system, getClass.getName)
 
@@ -72,7 +72,7 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
   /**
     * Initializes all design documents.
     */
-  private def updateJournalDesignDocs(): Unit = {
+  def updateJournalDesignDocs(): Unit = {
 
     val designDocs = JsonObject.create()
       .put("views", JsonObject.create()
@@ -99,7 +99,7 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
   /**
     * Initializes all design documents.
     */
-  private def updateSnapshotStoreDesignDocs(): Unit = {
+  def updateSnapshotStoreDesignDocs(): Unit = {
 
     val designDocs = JsonObject.create()
       .put("views", JsonObject.create()
@@ -141,7 +141,7 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
     updateDesignDocuments(snapshotStoreBucket, "snapshots", designDocs)
   }
 
-  private def updateDesignDocuments(bucket: Bucket, name: String, raw: JsonObject): Unit = {
+  def updateDesignDocuments(bucket: Bucket, name: String, raw: JsonObject): Unit = {
     Try {
       val designDocument = DesignDocument.from(name, raw)
       bucket.bucketManager.upsertDesignDocument(designDocument)
@@ -157,8 +157,15 @@ object CouchbaseExtension extends ExtensionId[Couchbase] with ExtensionIdProvide
 
   override def lookup(): ExtensionId[Couchbase] = CouchbaseExtension
 
+  var couchbase: DefaultCouchbase = _
+
+  def recreateViews() = {
+    couchbase.updateJournalDesignDocs()
+    couchbase.updateSnapshotStoreDesignDocs()
+  }
+
   override def createExtension(system: ExtendedActorSystem): Couchbase = {
-    val couchbase = new DefaultCouchbase(system)
+    couchbase = new DefaultCouchbase(system)
     system.registerOnTermination(couchbase.shutdown())
     couchbase
   }
