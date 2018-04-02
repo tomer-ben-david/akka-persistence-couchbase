@@ -3,7 +3,7 @@ package akka.persistence.couchbase.journal
 import java.util.concurrent.TimeUnit
 
 import akka.persistence.PersistentRepr
-import akka.persistence.couchbase.CouchbaseExtension
+import akka.persistence.couchbase.{CouchbaseExtension, LogUtils}
 import com.couchbase.client.java.document.json.JsonObject
 import com.couchbase.client.java.error.ViewDoesNotExistException
 
@@ -46,11 +46,11 @@ trait CouchbaseRecovery {
         List.empty[JournalMessage].iterator
       } else {
         val query = bySequenceNr(persistenceId, fromSequenceNr, toSequenceNr)
-        log.info(s"JOURNAL Before query timeout ${config.timeout.toSeconds}")
+        log.info(s"${LogUtils.CBPersistenceKey}.JOURNAL Before query timeout ${config.timeout.toSeconds}")
         val result = bucket.query(query, config.timeout.toSeconds, TimeUnit.SECONDS).iterator.asScala.map { viewRow =>
           JournalMessage.deserialize(viewRow.value().asInstanceOf[JsonObject], viewRow.id())
         }
-        log.info(s"JOURNAL After query timeout ${config.timeout.toSeconds}")
+        log.info(s"${LogUtils.CBPersistenceKey}.JOURNAL After query timeout ${config.timeout.toSeconds}")
         result
       }
     }

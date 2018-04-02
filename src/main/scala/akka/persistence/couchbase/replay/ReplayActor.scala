@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{Actor, ActorLogging, Props}
 import akka.persistence.PersistentRepr
-import akka.persistence.couchbase.CouchbaseExtension
+import akka.persistence.couchbase.{CouchbaseExtension, LogUtils}
 import akka.persistence.couchbase.replay.ReplayActor.NextPage
 import akka.serialization.SerializationExtension
 import com.couchbase.client.core.utils.Base64
@@ -36,6 +36,7 @@ class ReplayActor(callback: ReplayCallback)
 
   override def receive: Receive = {
     case ReplayActor.Recover(journalMessageId) =>
+      log.info(s"${LogUtils.CBPersistenceKey}.ReplayActor.receive got recieve message ReplayActor.Recover(journalMessageId): $journalMessageId")
       query.stale(Stale.FALSE)
       processNext(ReplayCursor(journalMessageId.orElse(replay.readMessageId(ReplayActor.replayId))))
       query.stale(Stale.TRUE)
@@ -64,6 +65,9 @@ class ReplayActor(callback: ReplayCallback)
   }
 
   def processBatch(cursor: ReplayCursor): ReplayCursor = {
+    val funcName = s"${LogUtils.CBPersistenceKey}.processBatch"
+
+    log.info(s"$funcName: query: $query")
     cursor.journalMessageIdOption.fold(query) { journalMessageId =>
       query
         .skip(1)

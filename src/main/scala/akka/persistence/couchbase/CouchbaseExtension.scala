@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import akka.event.Logging
-import com.couchbase.client.java.Bucket
+import com.couchbase.client.java.{Bucket, Cluster}
 import com.couchbase.client.java.document.json.JsonObject
 import com.couchbase.client.java.env.{CouchbaseEnvironment, DefaultCouchbaseEnvironment}
 import com.couchbase.client.java.util.Blocking
@@ -33,11 +33,53 @@ class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbase with C
 
   override val snapshotStoreConfig = CouchbaseSnapshotStoreConfig(system)
 
-  override val environment = DefaultCouchbaseEnvironment.create()
+  override def environment = currentEnvironment
 
-  private val journalCluster =  client.createCluster(environment, journalConfig.nodes) // journalConfig.createCluster(environment)
+  private def recreateEnvironment(): DefaultCouchbaseEnvironment = {
+    val funcName = "recreateEnvironment"
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: about to recreate couchbase environment, current: $currentEnvironment")
 
-  override val journalBucket = client.openBucket(journalCluster, journalConfig.username, journalConfig.bucketName, journalConfig.bucketPassword) // journalConfig.openBucket(journalCluster)
+    DefaultCouchbaseEnvironment.create()
+  }
+
+  private var currentEnvironment: DefaultCouchbaseEnvironment = recreateEnvironment()
+
+  private var journalCluster =  journalClusterReconnect() // journalConfig.createCluster(environment)
+
+  private def journalClusterReconnect(): Cluster = {
+    val funcName = "journalClusterReconnect"
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: about to reconnect cluster, current cluster: $journalCluster")
+    if (journalCluster != null) {
+      journalCluster.disconnect()
+      Thread.sleep(1000)
+    }
+    journalCluster = client.createCluster(environment, journalConfig.nodes)
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: after reconnect cluster, current cluster: $journalCluster")
+    journalCluster
+  }
+
+  override def journalBucket: Bucket = currentJournalBucket
+
+  var currentJournalBucket = reconnectJournalBucket()
+
+  def reconnectJournalBucket(): Bucket = {
+    val funcName = "reconnectJournalBucket"
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: reconnecting journal bucket with config: $journalConfig")
+
+
+    journalClusterReconnect()
+
+    if (currentJournalBucket != null) {
+      currentJournalBucket.close()
+      Thread.sleep(1000)
+    }
+
+
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: reconnected journal bucket before: $currentJournalBucket")
+    currentJournalBucket = client.openBucket(journalCluster, journalConfig.username, journalConfig.bucketName, journalConfig.bucketPassword)
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: reconnected journal bucket after: $currentJournalBucket")
+    currentJournalBucket
+  }
 
   private val snapshotStoreCluster = client.createCluster(environment, snapshotStoreConfig.nodes) // snapshotStoreConfig.createCluster(environment)
 
@@ -158,6 +200,10 @@ object CouchbaseExtension extends ExtensionId[Couchbase] with ExtensionIdProvide
   override def lookup(): ExtensionId[Couchbase] = CouchbaseExtension
 
   var couchbase: DefaultCouchbase = _
+
+  def reconnectJournalBucket(): Bucket = {
+    couchbase.reconnectJournalBucket()
+  }
 
   def recreateViews() = {
     couchbase.updateJournalDesignDocs()

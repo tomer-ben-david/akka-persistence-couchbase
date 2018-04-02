@@ -2,7 +2,7 @@ package akka.persistence.couchbase.journal
 
 import akka.actor.ActorLogging
 import akka.persistence._
-import akka.persistence.couchbase.{Couchbase, CouchbaseExtension, Message}
+import akka.persistence.couchbase.{Couchbase, CouchbaseExtension, LogUtils, Message}
 import akka.persistence.journal.{AsyncWriteJournal, Tagged}
 import akka.serialization.{SerializationExtension, SerializerWithStringManifest}
 
@@ -24,6 +24,10 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
   val tombstone = couchbase.journalConfig.tombstone
 
   override def asyncWriteMessages(messages: Seq[AtomicWrite]): Future[Seq[Try[Unit]]] = {
+
+    val funcName = "asyncWriteMessages"
+
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: about to persist $messages")
 
     val serialized = messages.map(atomicWrite => Try {
       val persistenceId = atomicWrite.persistenceId
@@ -60,16 +64,26 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
     val result = serialized.map(a => a.map(_ => ()))
     val batches = serialized.collect({ case Success(batch) => batch })
 
-    Future.fromTry {
+    val finalResult = Future.fromTry {
       batches.foldLeft[Try[Unit]](Success({})) { case (acc, batch) =>
         acc.flatMap { _ =>
-          log.info("JOURNAL Before execute batch")
+          log.info(s"${LogUtils.CBPersistenceKey}.$funcName: JOURNAL Before execute batch")
           val result = executeBatch(batch)
-          log.info("JOURNAL after execute batch")
+          log.info(s"${LogUtils.CBPersistenceKey}.$funcName: JOURNAL after execute batch")
           result
         }
       }.map(_ => result)
     }
+
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: finished persisting $messages result: $finalResult")
+    finalResult.recoverWith {
+      case t: Throwable =>
+        log.error(s"${LogUtils.CBPersistenceKey}.$funcName: error when persisting $messages result: $finalResult, exception: $t")
+        log.info(s"${LogUtils.CBPersistenceKey}.$funcName: reconnect after error persisting")
+        CouchbaseExtension.reconnectJournalBucket()
+        throw t
+    }
+    finalResult
   }
 
   override def asyncDeleteMessagesTo(persistenceId: String, toSequenceNr: Long): Future[Unit] = {
