@@ -36,7 +36,7 @@ class ReplayActor(callback: ReplayCallback)
 
   override def receive: Receive = {
     case ReplayActor.Recover(journalMessageId) =>
-      log.info(s"${LogUtils.CBPersistenceKey}.ReplayActor.receive got recieve message ReplayActor.Recover(journalMessageId): $journalMessageId")
+      log.debug(s"${LogUtils.CBPersistenceKey}.ReplayActor.receive got recieve message ReplayActor.Recover(journalMessageId): $journalMessageId")
       query.stale(Stale.FALSE)
       processNext(ReplayCursor(journalMessageId.orElse(replay.readMessageId(ReplayActor.replayId))))
       query.stale(Stale.TRUE)
@@ -67,7 +67,7 @@ class ReplayActor(callback: ReplayCallback)
   def processBatch(cursor: ReplayCursor): ReplayCursor = {
     val funcName = s"${LogUtils.CBPersistenceKey}.processBatch"
 
-    log.info(s"$funcName: query: $query")
+    log.debug(s"$funcName: query: $query")
     cursor.journalMessageIdOption.fold(query) { journalMessageId =>
       query
         .skip(1)

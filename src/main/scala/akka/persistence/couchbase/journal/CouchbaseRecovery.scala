@@ -46,11 +46,11 @@ trait CouchbaseRecovery {
         List.empty[JournalMessage].iterator
       } else {
         val query = bySequenceNr(persistenceId, fromSequenceNr, toSequenceNr)
-        log.info(s"${LogUtils.CBPersistenceKey}.JOURNAL Before query timeout ${config.timeout.toSeconds}")
+        log.debug(s"${LogUtils.CBPersistenceKey}.JOURNAL Before query timeout ${config.timeout.toSeconds}")
         val result = bucket.query(query, config.timeout.toSeconds, TimeUnit.SECONDS).iterator.asScala.map { viewRow =>
           JournalMessage.deserialize(viewRow.value().asInstanceOf[JsonObject], viewRow.id())
         }
-        log.info(s"${LogUtils.CBPersistenceKey}.JOURNAL After query timeout ${config.timeout.toSeconds}")
+        log.debug(s"${LogUtils.CBPersistenceKey}.JOURNAL After query timeout ${config.timeout.toSeconds}")
         result
       }
     }

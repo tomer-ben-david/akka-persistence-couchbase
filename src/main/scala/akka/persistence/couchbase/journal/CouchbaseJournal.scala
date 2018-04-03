@@ -27,7 +27,7 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
 
     val funcName = "asyncWriteMessages"
 
-    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: about to persist $messages")
+    log.debug(s"${LogUtils.CBPersistenceKey}.$funcName: about to persist $messages")
 
     val serialized = messages.map(atomicWrite => Try {
       val persistenceId = atomicWrite.persistenceId
@@ -67,9 +67,9 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
     val finalResult = Future.fromTry {
       batches.foldLeft[Try[Unit]](Success({})) { case (acc, batch) =>
         acc.flatMap { _ =>
-          log.info(s"${LogUtils.CBPersistenceKey}.$funcName: JOURNAL Before execute batch")
+          log.debug(s"${LogUtils.CBPersistenceKey}.$funcName: JOURNAL Before execute batch")
           val result = executeBatch(batch)
-          log.info(s"${LogUtils.CBPersistenceKey}.$funcName: JOURNAL after execute batch")
+          log.debug(s"${LogUtils.CBPersistenceKey}.$funcName: JOURNAL after execute batch")
           result
         }
       }.map(_ => result)
@@ -79,7 +79,7 @@ class CouchbaseJournal extends AsyncWriteJournal with CouchbaseRecovery with Cou
     finalResult.recoverWith {
       case t: Throwable =>
         log.error(s"${LogUtils.CBPersistenceKey}.$funcName: error when persisting $messages result: $finalResult, exception: $t")
-        log.info(s"${LogUtils.CBPersistenceKey}.$funcName: reconnect after error persisting")
+        log.debug(s"${LogUtils.CBPersistenceKey}.$funcName: reconnect after error persisting")
         CouchbaseExtension.reconnectJournalBucket()
         throw t
     }
