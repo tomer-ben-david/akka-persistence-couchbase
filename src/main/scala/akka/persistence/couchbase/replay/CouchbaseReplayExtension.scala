@@ -4,7 +4,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import akka.event.Logging
-import akka.persistence.couchbase.CouchbaseExtension
+import akka.persistence.couchbase.{CouchbaseExtension, CouchbasePersistencyClientContainer}
 import com.couchbase.client.java.document.JsonLongDocument
 import com.couchbase.client.java.document.json.JsonObject
 import com.couchbase.client.java.view._
@@ -22,7 +22,8 @@ trait CouchbaseReplay extends Extension {
   def readMessageId(identifier: String): Option[Long]
 }
 
-private class DefaultCouchbaseReplay(val system: ExtendedActorSystem) extends CouchbaseReplay {
+private class DefaultCouchbaseReplay(val system: ExtendedActorSystem) extends CouchbaseReplay
+  with CouchbasePersistencyClientContainer {
 
   private val log = Logging(system, getClass.getName)
 
@@ -30,9 +31,9 @@ private class DefaultCouchbaseReplay(val system: ExtendedActorSystem) extends Co
 
   override val replayConfig = CouchbaseReplayConfig(system)
 
-  val cluster = replayConfig.createCluster(couchbase.environment)
+  val cluster = client.createCluster(couchbase.environment, replayConfig.nodes) // replayConfig.createCluster(couchbase.environment)
 
-  val replayBucket = replayConfig.openBucket(cluster)
+  val replayBucket = client.openBucket(cluster, replayConfig.username, replayConfig.bucketName, replayConfig.bucketPassword) // replayConfig.openBucket(cluster)
 
   updateJournalDesignDocs()
 

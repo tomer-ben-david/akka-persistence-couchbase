@@ -1,15 +1,17 @@
 package akka.persistence.couchbase
 
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.actor.{ExtendedActorSystem, Extension, ExtensionId, ExtensionIdProvider}
 import akka.event.Logging
-import com.couchbase.client.java.Bucket
+import com.couchbase.client.java.{Bucket, Cluster}
 import com.couchbase.client.java.document.json.JsonObject
 import com.couchbase.client.java.env.{CouchbaseEnvironment, DefaultCouchbaseEnvironment}
 import com.couchbase.client.java.util.Blocking
 import com.couchbase.client.java.view.DesignDocument
 
+import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.{Failure, Try}
 
 trait Couchbase extends Extension {
@@ -25,7 +27,7 @@ trait Couchbase extends Extension {
   def snapshotStoreConfig: CouchbaseSnapshotStoreConfig
 }
 
-private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbase {
+class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbase with CouchbasePersistencyClientContainer {
 
   private val log = Logging(system, getClass.getName)
 
@@ -33,15 +35,95 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
 
   override val snapshotStoreConfig = CouchbaseSnapshotStoreConfig(system)
 
-  override val environment = DefaultCouchbaseEnvironment.create()
+  val scheduler = Executors.newSingleThreadScheduledExecutor()
 
-  private val journalCluster = journalConfig.createCluster(environment)
+  override def environment = currentEnvironment
 
-  override val journalBucket = journalConfig.openBucket(journalCluster)
+  private def recreateEnvironment(): DefaultCouchbaseEnvironment = {
+    val funcName = "recreateEnvironment"
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: about to recreate couchbase environment, current: $currentEnvironment")
 
-  private val snapshotStoreCluster = snapshotStoreConfig.createCluster(environment)
+    DefaultCouchbaseEnvironment.create()
+  }
 
-  override val snapshotStoreBucket = snapshotStoreConfig.openBucket(snapshotStoreCluster)
+  private val currentEnvironment: DefaultCouchbaseEnvironment = recreateEnvironment()
+
+  private var journalCluster: Cluster =  Await.result(journalClusterReconnect(), FiniteDuration(6, scala.concurrent.duration.SECONDS)) // journalConfig.createCluster(environment)
+
+  private def journalClusterReconnect(): Future[Cluster] = {
+    val funcName = "journalClusterReconnect"
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: about to reconnect cluster, current cluster: $journalCluster")
+    if (journalCluster != null) {
+      journalCluster.disconnect()
+    }
+
+    val p = Promise[Cluster]()
+
+    scheduler.schedule(new Runnable() {
+      val funcName = "journalDisconnectRunnable"
+
+      override def run(): Unit = {
+        Try {
+        journalCluster = client.createCluster(environment, journalConfig.nodes)
+        log.info(s"${LogUtils.CBPersistenceKey}.$funcName: after reconnect cluster, current cluster: $journalCluster")
+        p.success(journalCluster)}.recoverWith {
+          case t: Throwable =>
+            p.failure(t)
+            log.error(t, s"${LogUtils.CBPersistenceKey}.$funcName: failed reconnect cluster, current cluster: $journalCluster")
+            throw t
+        }
+      }
+    }, 1, TimeUnit.SECONDS)
+
+    p.future
+
+//    journalCluster = client.createCluster(environment, journalConfig.nodes)
+//    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: after reconnect cluster, current cluster: $journalCluster")
+//    journalCluster
+  }
+
+  override def journalBucket: Bucket = currentJournalBucket
+
+  var currentJournalBucket: Bucket = Await.result(reconnectJournalBucket(), FiniteDuration(7, scala.concurrent.duration.SECONDS))
+
+  def reconnectJournalBucket(): Future[Bucket] = {
+    val funcName = "reconnectJournalBucket"
+    log.info(s"${LogUtils.CBPersistenceKey}.$funcName: reconnecting journal bucket with config: $journalConfig")
+
+
+    journalClusterReconnect()
+
+    if (currentJournalBucket != null) {
+      currentJournalBucket.close()
+    }
+
+    val p = Promise[Bucket]()
+
+    scheduler.schedule(new Runnable() {
+      val funcName = "journalDisconnectRunnable"
+
+      override def run(): Unit = {
+        Try {
+          log.info(s"${LogUtils.CBPersistenceKey}.$funcName: reconnected journal bucket before: $currentJournalBucket")
+          currentJournalBucket = client.openBucket(journalCluster, journalConfig.username, journalConfig.bucketName, journalConfig.bucketPassword)
+          log.info(s"${LogUtils.CBPersistenceKey}.$funcName: reconnected journal bucket after: $currentJournalBucket")
+          p.success(currentJournalBucket)
+        }.recoverWith {
+          case t: Throwable =>
+            p.failure(t)
+            log.error(t, s"${LogUtils.CBPersistenceKey}.$funcName: failed reconnect cluster, current cluster: $journalCluster")
+            throw t
+        }
+      }
+    }, 2, TimeUnit.SECONDS)
+
+
+    p.future
+  }
+
+  private val snapshotStoreCluster = client.createCluster(environment, snapshotStoreConfig.nodes) // snapshotStoreConfig.createCluster(environment)
+
+  override val snapshotStoreBucket = client.openBucket(snapshotStoreCluster, snapshotStoreConfig.username, snapshotStoreConfig.bucketName, snapshotStoreConfig.bucketPassword) // snapshotStoreConfig.openBucket(snapshotStoreCluster)
 
   updateJournalDesignDocs()
   updateSnapshotStoreDesignDocs()
@@ -72,7 +154,7 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
   /**
     * Initializes all design documents.
     */
-  private def updateJournalDesignDocs(): Unit = {
+  def updateJournalDesignDocs(): Unit = {
 
     val designDocs = JsonObject.create()
       .put("views", JsonObject.create()
@@ -99,7 +181,7 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
   /**
     * Initializes all design documents.
     */
-  private def updateSnapshotStoreDesignDocs(): Unit = {
+  def updateSnapshotStoreDesignDocs(): Unit = {
 
     val designDocs = JsonObject.create()
       .put("views", JsonObject.create()
@@ -141,7 +223,7 @@ private class DefaultCouchbase(val system: ExtendedActorSystem) extends Couchbas
     updateDesignDocuments(snapshotStoreBucket, "snapshots", designDocs)
   }
 
-  private def updateDesignDocuments(bucket: Bucket, name: String, raw: JsonObject): Unit = {
+  def updateDesignDocuments(bucket: Bucket, name: String, raw: JsonObject): Unit = {
     Try {
       val designDocument = DesignDocument.from(name, raw)
       bucket.bucketManager.upsertDesignDocument(designDocument)
@@ -157,8 +239,19 @@ object CouchbaseExtension extends ExtensionId[Couchbase] with ExtensionIdProvide
 
   override def lookup(): ExtensionId[Couchbase] = CouchbaseExtension
 
+  var couchbase: DefaultCouchbase = _
+
+  def reconnectJournalBucket(): Bucket = {
+    Await.result(couchbase.reconnectJournalBucket(), FiniteDuration(8, scala.concurrent.duration.SECONDS))
+  }
+
+  def recreateViews() = {
+    couchbase.updateJournalDesignDocs()
+    couchbase.updateSnapshotStoreDesignDocs()
+  }
+
   override def createExtension(system: ExtendedActorSystem): Couchbase = {
-    val couchbase = new DefaultCouchbase(system)
+    couchbase = new DefaultCouchbase(system)
     system.registerOnTermination(couchbase.shutdown())
     couchbase
   }

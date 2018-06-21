@@ -3,7 +3,9 @@ package akka.persistence.couchbase.journal
 import java.util.concurrent.TimeUnit
 
 import akka.persistence.PersistentRepr
+import akka.persistence.couchbase.{CouchbaseExtension, LogUtils}
 import com.couchbase.client.java.document.json.JsonObject
+import com.couchbase.client.java.error.ViewDoesNotExistException
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
@@ -17,7 +19,12 @@ trait CouchbaseRecovery {
   }
 
   override def asyncReadHighestSequenceNr(persistenceId: String, fromSequenceNr: Long): Future[Long] = {
-    Future.fromTry(CouchbaseRecovery.readHighestSequenceNr(persistenceId, fromSequenceNr))
+    Future.fromTry(CouchbaseRecovery.readHighestSequenceNr(persistenceId, fromSequenceNr)).recoverWith {
+      case view: ViewDoesNotExistException =>
+        log.error(s"asyncReadHighestSequenceNr view does not exist $view, recreating...")
+        CouchbaseExtension.recreateViews()
+        Future.fromTry(CouchbaseRecovery.readHighestSequenceNr(persistenceId, fromSequenceNr))
+    }
   }
 
   object CouchbaseRecovery {
@@ -39,9 +46,12 @@ trait CouchbaseRecovery {
         List.empty[JournalMessage].iterator
       } else {
         val query = bySequenceNr(persistenceId, fromSequenceNr, toSequenceNr)
-        bucket.query(query, config.timeout.toSeconds, TimeUnit.SECONDS).iterator.asScala.map { viewRow =>
+        log.debug(s"${LogUtils.CBPersistenceKey}.JOURNAL Before query timeout ${config.timeout.toSeconds}")
+        val result = bucket.query(query, config.timeout.toSeconds, TimeUnit.SECONDS).iterator.asScala.map { viewRow =>
           JournalMessage.deserialize(viewRow.value().asInstanceOf[JsonObject], viewRow.id())
         }
+        log.debug(s"${LogUtils.CBPersistenceKey}.JOURNAL After query timeout ${config.timeout.toSeconds}")
+        result
       }
     }
 

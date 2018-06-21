@@ -1,7 +1,7 @@
 package akka.persistence.couchbase.replay
 
 import akka.actor.ActorSystem
-import akka.persistence.couchbase.{CouchbasePluginConfig, DefaultCouchbasePluginConfig}
+import akka.persistence.couchbase.{AkkaPersistenceCouchbaseConfigContainer, CouchbasePluginConfig, DefaultCouchbasePluginConfig}
 import com.typesafe.config.Config
 
 trait CouchbaseReplayConfig extends CouchbasePluginConfig {
@@ -12,9 +12,7 @@ trait CouchbaseReplayConfig extends CouchbasePluginConfig {
 }
 
 object CouchbaseReplayConfig {
-  def apply(system: ActorSystem) = {
-    new DefaultCouchbaseReplayConfig(system.settings.config.getConfig("couchbase-replay"))
-  }
+  def apply(system: ActorSystem) = AkkaPersistenceCouchbaseConfigContainer.getReplayConfig(system)
 }
 
 class DefaultCouchbaseReplayConfig(config: Config)
