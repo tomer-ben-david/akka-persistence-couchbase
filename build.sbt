@@ -2,7 +2,7 @@ organization := "com.productfoundry"
 
 name := "akka-persistence-couchbase"
 
-version := "0.6.7"
+version := "0.6.8"
 
 scalaVersion := "2.11.8"
 
@@ -32,13 +32,14 @@ resolvers ++= Seq(
 
 licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0.html"))
 
+
 bintrayOrganization := Some("tomerbd")
 
 val akkaVer = "2.5.3"
 
 libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-persistence" % akkaVer,
-  "com.couchbase.client" % "java-client" % "2.4.7",
+  "com.couchbase.client" % "java-client" % "2.5.7",
   "commons-codec" % "commons-codec" % "1.10",
   "com.typesafe.akka" %% "akka-persistence-tck" % akkaVer % "test",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test",
